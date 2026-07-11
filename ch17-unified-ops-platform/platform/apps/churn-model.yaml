@@ -1,0 +1,22 @@
+# Argo CD Application: reconciles the MLOps churn model from Git.
+# The repoURL is the same placeholder as root.yaml; setup.sh substitutes it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: churn-model
+  namespace: argocd
+spec:
+  project: aiosp
+  source:
+    repoURL: https://github.com/YOUR-USERNAME/aiosp-platform.git
+    targetRevision: main
+    path: platform/inference
+    directory:
+      include: churn-model.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mlops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,115 @@
+# Listing 3-2. Dual-routing OpenTelemetry Collector configuration.
+# Routes metrics, traces, and logs to real-time backends for humans AND to an
+# S3 lake for ML training. Requires the OpenTelemetry Collector Contrib
+# distribution (otel/opentelemetry-collector-contrib), pinned to 0.135.0,
+# because awss3, tail_sampling, and the spanmetrics connector ship only in
+# contrib, not in core.
+#
+# The spanmetrics connector derives request rate, latency, and error metrics
+# from the unsampled span stream (traces/lake), so the feature job gets one
+# uniform set of request-level metric names for every service, regardless of
+# which language SDK it uses. It runs with delta temporality for the lake;
+# do NOT route its delta stream to prometheusremotewrite, which expects
+# cumulative metrics.
+#
+# Pinned versions (see companion-repo/ch03-observability/README.md):
+#   otel/opentelemetry-collector-contrib:0.135.0
+#   Prometheus 3.5.0 (remote-write receiver enabled)
+#   Grafana Tempo 2.8.2 (OTLP ingest)
+#   Grafana Loki 3.5.5 (native OTLP endpoint at /otlp)
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: production
+        action: upsert
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    expected_new_traces_per_sec: 2000
+    policies:
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-slow
+        type: latency
+        latency:
+          threshold_ms: 500
+      - name: random-baseline
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+  batch:
+    send_batch_size: 8192
+    timeout: 5s
+
+connectors:
+  # Request rate, latency, and errors derived from the span stream itself,
+  # so the names are uniform across services regardless of language SDK
+  spanmetrics:
+    metrics_flush_interval: 15s
+    aggregation_temporality: "AGGREGATION_TEMPORALITY_DELTA"
+
+exporters:
+  # Real-time observability path (for humans)
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    resource_to_telemetry_conversion:
+      enabled: true
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+  # ML training-lake path (for models)
+  awss3:
+    s3uploader:
+      region: us-east-1
+      s3_bucket: telemetry-lake
+      s3_prefix: otel
+      s3_partition_format: '%Y/%m/%d/%H'
+      compression: gzip
+    marshaler: otlp_proto
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheusremotewrite, awss3]
+    # Human path: tail-sampled traces for dashboards and a sustainable bill
+    traces/human:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, tail_sampling, batch]
+      exporters: [otlp/tempo]
+    # Model path: the full, unsampled stream to the lake, so models see the
+    # rare events, plus span-derived request metrics for the feature job
+    traces/lake:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [awss3, spanmetrics]
+    # Span-derived request metrics: delta temporality, lake only
+    metrics/spanmetrics:
+      receivers: [spanmetrics]
+      processors: [memory_limiter, resource, batch]
+      exporters: [awss3]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/loki, awss3]

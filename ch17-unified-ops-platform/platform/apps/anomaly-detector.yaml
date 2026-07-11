@@ -1,0 +1,24 @@
+# Argo CD Application: reconciles the AIOps anomaly detector from Git.
+# Every workload (AIOps, MLOps, LLMOps) is delivered by an Application like this,
+# all from the SAME platform repo and onto the SAME cluster: one delivery loop.
+# The repoURL is the same placeholder as root.yaml; setup.sh substitutes it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: anomaly-detector
+  namespace: argocd
+spec:
+  project: aiosp
+  source:
+    repoURL: https://github.com/YOUR-USERNAME/aiosp-platform.git
+    targetRevision: main
+    path: platform/inference
+    directory:
+      include: anomaly-detector.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aiops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

@@ -1,0 +1,23 @@
+# Argo CD Application: reconciles the LLMOps Incident Copilot from Git.
+# Same repoURL and same in-cluster destination as the predictive workloads.
+# The repoURL is the same placeholder as root.yaml; setup.sh substitutes it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: incident-copilot
+  namespace: argocd
+spec:
+  project: aiosp
+  source:
+    repoURL: https://github.com/YOUR-USERNAME/aiosp-platform.git
+    targetRevision: main
+    path: platform/inference
+    directory:
+      include: incident-copilot.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: llmops
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

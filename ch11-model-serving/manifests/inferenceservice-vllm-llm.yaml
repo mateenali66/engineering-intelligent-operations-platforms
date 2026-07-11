@@ -1,0 +1,30 @@
+# Lab C: serve a small LLM via the vLLM runtime on the SAME InferenceService kind.
+# modelFormat.name: huggingface selects the Hugging Face serving runtime, whose
+# backend engine is vLLM (continuous batching, paged KV cache, OpenAI-compatible
+# endpoints). This is the convergence proof: the same CRD as the sklearn manifest,
+# differing only in the runtime and the model reference. REQUIRES a GPU node
+# (nvidia.com/gpu); not run in CI, validated with yamllint only. For advanced
+# multi-node LLM workloads, KServe also offers the newer LLMInferenceService CRD.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: qwen-llm
+  namespace: kserve-test
+spec:
+  predictor:
+    minReplicas: 1          # GPU LLMs are usually pinned warm, not scaled to zero
+    model:
+      modelFormat:
+        name: huggingface   # Hugging Face runtime; vLLM is the backend engine
+      args:
+        - --model_name=qwen
+      storageUri: "hf://Qwen/Qwen2.5-0.5B-Instruct"
+      resources:
+        requests:
+          cpu: "1"
+          memory: 4Gi
+          nvidia.com/gpu: "1"   # requires a GPU node; not run in CI
+        limits:
+          cpu: "2"
+          memory: 6Gi
+          nvidia.com/gpu: "1"

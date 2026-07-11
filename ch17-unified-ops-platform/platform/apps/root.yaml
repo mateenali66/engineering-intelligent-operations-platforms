@@ -1,0 +1,23 @@
+# App-of-apps: the single root Application that delivers the other three.
+# Point Argo CD at this one resource and it reconciles the whole platform:
+# the AIOps, MLOps, and LLMOps workloads come up together from one Git repo.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aiosp-root
+  namespace: argocd
+spec:
+  project: aiosp
+  source:
+    # PLACEHOLDER: your fork of this platform tree. Argo CD pulls from Git, so
+    # push the tree to a remote you own; setup.sh substitutes the URL for you.
+    repoURL: https://github.com/YOUR-USERNAME/aiosp-platform.git
+    targetRevision: main
+    path: platform/apps
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

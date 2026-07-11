@@ -1,0 +1,16 @@
+# Chapter 17: The Unified Ops Platform. Pinned, CI-tested versions.
+# The two CI-runnable artifacts (the convergence check over the GitOps manifests,
+# and the unified infra+gen_ai trace) need NO cluster, NO LLM key, NO GPU. They
+# install and run in one Python 3.12 environment.
+#
+# The OpenTelemetry pins match Chapter 13 so the gen_ai span code is consistent
+# across the LLMOps part and this capstone.
+opentelemetry-api==1.42.1
+opentelemetry-sdk==1.42.1
+opentelemetry-semantic-conventions==0.63b1
+
+# The convergence check parses the real Argo CD / KServe / Collector manifests.
+PyYAML==6.0.2
+
+# Test + lint.
+pytest==8.4.2

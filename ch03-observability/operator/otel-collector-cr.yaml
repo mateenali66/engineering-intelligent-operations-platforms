@@ -1,0 +1,162 @@
+# Listing 3-1. OpenTelemetry Operator custom resources for the agent/gateway
+# topology of Figure 3-2. Two OpenTelemetryCollector resources: a DaemonSet
+# agent on every node that batches and forwards, and a Deployment gateway that
+# does the stateful tail sampling, derives span metrics, and fans out to the
+# backends and the S3 lake. The gateway config mirrors Listing 3-2
+# (collector-config/otel-collector-config.yaml).
+#
+# Requires the OpenTelemetry Operator installed in the cluster.
+# Pinned: opentelemetry-operator 0.135.0 (apiVersion opentelemetry.io/v1beta1);
+# both collectors run otel/opentelemetry-collector-contrib:0.135.0.
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: agent
+  namespace: observability
+spec:
+  mode: daemonset
+  # contrib build: awss3, tail_sampling, and spanmetrics are contrib-only
+  image: otel/opentelemetry-collector-contrib:0.135.0
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      resourcedetection:
+        detectors: [env, system]
+      batch:
+        send_batch_size: 8192
+        timeout: 5s
+    exporters:
+      # Agents do not sample or fan out; they forward to the gateway so
+      # tail sampling sees every span of a trace in one place
+      otlp/gateway:
+        endpoint: gateway-collector:4317
+        tls:
+          insecure: true
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, resourcedetection, batch]
+          exporters: [otlp/gateway]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, resourcedetection, batch]
+          exporters: [otlp/gateway]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resourcedetection, batch]
+          exporters: [otlp/gateway]
+---
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: gateway
+  namespace: observability
+spec:
+  mode: deployment
+  replicas: 2
+  # contrib build: awss3, tail_sampling, and spanmetrics are contrib-only
+  image: otel/opentelemetry-collector-contrib:0.135.0
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      resource:
+        attributes:
+          - key: deployment.environment
+            value: production
+            action: upsert
+      tail_sampling:
+        decision_wait: 10s
+        num_traces: 50000
+        expected_new_traces_per_sec: 2000
+        policies:
+          - name: keep-errors
+            type: status_code
+            status_code:
+              status_codes: [ERROR]
+          - name: keep-slow
+            type: latency
+            latency:
+              threshold_ms: 500
+          - name: random-baseline
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: 10
+      batch:
+        send_batch_size: 8192
+        timeout: 5s
+    connectors:
+      # Request rate, latency, and errors derived from the span stream
+      # itself, uniform across services regardless of language SDK
+      spanmetrics:
+        metrics_flush_interval: 15s
+        aggregation_temporality: "AGGREGATION_TEMPORALITY_DELTA"
+    exporters:
+      # Real-time observability path (for humans)
+      prometheusremotewrite:
+        endpoint: http://prometheus:9090/api/v1/write
+        resource_to_telemetry_conversion:
+          enabled: true
+      otlp/tempo:
+        endpoint: tempo:4317
+        tls:
+          insecure: true
+      otlphttp/loki:
+        endpoint: http://loki:3100/otlp
+
+      # ML training-lake path (for models)
+      awss3:
+        s3uploader:
+          region: us-east-1
+          s3_bucket: telemetry-lake
+          s3_prefix: otel
+          s3_partition_format: '%Y/%m/%d/%H'
+          compression: gzip
+        marshaler: otlp_proto
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [prometheusremotewrite, awss3]
+        # Human path: tail-sampled traces for dashboards
+        traces/human:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, tail_sampling, batch]
+          exporters: [otlp/tempo]
+        # Model path: the full, unsampled stream to the lake, plus
+        # span-derived request metrics for the feature job
+        traces/lake:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [awss3, spanmetrics]
+        # Span-derived request metrics: delta temporality, lake only
+        metrics/spanmetrics:
+          receivers: [spanmetrics]
+          processors: [memory_limiter, resource, batch]
+          exporters: [awss3]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [otlphttp/loki, awss3]

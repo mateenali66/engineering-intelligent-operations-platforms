@@ -1,0 +1,20 @@
+# Listing 8-1: a Chaos Mesh pod-kill experiment with a steady-state hypothesis.
+# Steady-state hypothesis (checked by check_hypothesis in the analysis step):
+#   the payment service keeps its p99 latency under 500ms and error rate under
+#   1% while one of its pods is killed and rescheduled.
+# Blast radius: mode "one" kills a single pod in one namespace, nothing wider.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: payment-pod-kill
+  namespace: chaos-testing
+spec:
+  action: pod-kill          # immediately terminates the selected pod
+  mode: one                 # one pod only: the bounded blast radius
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      # the OpenTelemetry Demo labels pods by component, not a plain "app"
+      app.kubernetes.io/component: payment
+  gracePeriod: 0             # seconds before deletion; 0 = immediate

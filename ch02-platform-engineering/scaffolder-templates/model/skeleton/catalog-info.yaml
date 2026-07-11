@@ -1,0 +1,15 @@
+# Backstage scaffolder skeleton file (templated, not standalone YAML).
+# The fetch:template step renders the ${{ values.* }} substitutions.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.modelName }}
+  description: KServe inference service for the ${{ values.modelName }} model
+  annotations:
+    argocd/app-name: ${{ values.modelName }}
+    backstage.io/kubernetes-id: ${{ values.modelName }}
+spec:
+  type: service
+  lifecycle: production
+  owner: ${{ values.owner }}
+  system: ml-serving

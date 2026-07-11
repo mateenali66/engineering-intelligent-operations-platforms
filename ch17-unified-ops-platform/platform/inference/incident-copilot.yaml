@@ -1,0 +1,28 @@
+# LLMOps workload: the Chapter 15 Incident Copilot, a generative LLM.
+# Served by KServe through the Hugging Face runtime (modelFormat: huggingface),
+# which uses vLLM as its backend and exposes OpenAI-compatible endpoints at
+# /openai/v1/chat/completions. SAME apiVersion and kind as the predictive
+# workloads above: that identity is the whole point of the unified platform.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: incident-copilot
+  namespace: llmops
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: huggingface
+      args:
+        - --model_name=incident-copilot
+      env:
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.observability:4318
+      storageUri: hf://Qwen/Qwen2.5-7B-Instruct
+      resources:
+        requests:
+          cpu: "4"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+        limits:
+          nvidia.com/gpu: "1"

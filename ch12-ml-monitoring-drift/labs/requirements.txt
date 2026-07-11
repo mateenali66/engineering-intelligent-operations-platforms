@@ -1,0 +1,14 @@
+# Chapter 12: ML monitoring and drift labs. Pinned, CI-tested versions.
+# All three runnable labs (NannyML CBPE, Evidently->Prometheus, River ADWIN)
+# resolve and run together in ONE Python 3.12 environment.
+#
+# Python 3.12 is required, NOT 3.14: NannyML 0.13.1 pins `python <3.13`, the
+# same kind of version pin Chapter 11 hit with MLServer. River needs >=3.11 and
+# Evidently >=3.10, so 3.12 is the single version that satisfies all three.
+nannyml==0.13.1
+evidently==0.7.21
+river==0.25.0
+prometheus-client==0.25.0
+scikit-learn==1.9.0
+# Pulled in transitively and shared cleanly across all three libraries on 3.12:
+# pandas==3.0.3, numpy==2.5.0, scipy==1.18.0 (no conflicting pins).

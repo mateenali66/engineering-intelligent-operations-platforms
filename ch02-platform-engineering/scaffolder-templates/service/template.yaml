@@ -1,0 +1,54 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: python-service-otel
+  title: Python service with OpenTelemetry
+  description: >
+    Scaffold a production-ready Python service, wired into the
+    OpenTelemetry pipeline and registered in the service catalog.
+spec:
+  owner: team-platform
+  type: service
+  parameters:
+    - title: Service details
+      required: [name, owner, system]
+      properties:
+        name:
+          title: Service name
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        owner:
+          title: Owner
+          type: string
+          ui:field: OwnerPicker
+        system:
+          title: System
+          type: string
+  steps:
+    - id: fetch
+      name: Fetch skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+          system: ${{ parameters.system }}
+          otelEndpoint: http://otel-collector:4317
+    - id: publish
+      name: Publish to Git
+      action: publish:github
+      input:
+        repoUrl: github.com?owner=saas-team&repo=${{ parameters.name }}
+        defaultBranch: main
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+  output:
+    links:
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

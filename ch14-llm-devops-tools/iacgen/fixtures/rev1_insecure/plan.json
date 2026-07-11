@@ -1,0 +1,17 @@
+{
+  "format_version": "1.2",
+  "_comment": "RECORDED plan JSON for rev1_insecure. In production you would produce this with `terraform -chdir=rev1 init -backend=false && terraform plan -out tfplan && terraform show -json tfplan > plan.json`. It is recorded here so the OPA/Conftest gate runs headless in CI with no terraform init, no AWS credentials, and no network. The module has NO server_side_encryption_configuration resource, so the s3_encryption.rego deny rule fires.",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.telemetry",
+      "type": "aws_s3_bucket",
+      "name": "telemetry",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "telemetry-lake"
+        }
+      }
+    }
+  ]
+}

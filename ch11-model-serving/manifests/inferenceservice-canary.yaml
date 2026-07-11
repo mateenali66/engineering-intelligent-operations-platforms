@@ -1,0 +1,27 @@
+# Lab E: a canary rollout of a new anomaly-detector version. canaryTrafficPercent
+# is a spec.predictor integer field that sends that percentage to the candidate
+# revision and the rest to the last-ready revision. 10 means 10% to the new model
+# and 90% to the previous one; setting it to 0 rolls back. Validated with yamllint;
+# a real canary needs a live KServe + Knative cluster, so it is not run in CI.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: anomaly-detector
+  namespace: kserve-test
+spec:
+  predictor:
+    minReplicas: 0
+    canaryTrafficPercent: 10    # 10% to the new revision, 90% to last-ready
+    model:
+      modelFormat:
+        name: sklearn
+      protocolVersion: v2
+      runtime: kserve-sklearnserver
+      storageUri: "s3://aiosp-models/anomaly-detector/2"  # version 2 of the same registered model
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 100m
+          memory: 256Mi

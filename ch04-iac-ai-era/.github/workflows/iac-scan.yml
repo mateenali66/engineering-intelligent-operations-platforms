@@ -1,0 +1,60 @@
+# NOTE: This workflow file is retained as a reference artifact for Listing 4-3
+# in the book (Section 4.7: "The CI gate"), but it NEVER RUNS.
+#
+# GitHub Actions only executes workflow files located at the repository root
+# (.github/workflows/). Workflow files in subdirectory .github/workflows/
+# paths are ignored by the Actions runner. Because this companion repo has a
+# single root, subdirectory workflows are dead files.
+#
+# The IaC scan logic from the original draft of this file has been moved into
+# the root workflow at companion-repo/.github/workflows/ci.yml, split across
+# two jobs:
+#   iac-clean    : Checkov and Trivy on clean-module, gating (must pass)
+#   iac-insecure : Checkov and Trivy on generated-module, non-gating (must fail)
+#
+# This file is kept here so the book can reference its path (ch04-iac-ai-era/
+# .github/workflows/iac-scan.yml) and show readers how a chapter-scoped workflow
+# would be structured. The canonical, running version is the root ci.yml.
+#
+# If this repo is ever split so ch04 lives in its own repository, promote this
+# file to that repo's root .github/workflows/ and restore the trigger and jobs
+# below.
+#
+# --- Original content (non-executing, reference only) ---
+#
+# name: iac-scan
+# on:
+#   pull_request:
+#     paths:
+#       - "**/*.tf"
+#
+# jobs:
+#   scan:
+#     runs-on: ubuntu-22.04
+#     steps:
+#       - uses: actions/checkout@v4.2.2
+#
+#       - name: Set up Python 3.12
+#         uses: actions/setup-python@v5.3.0
+#         with:
+#           python-version: "3.12"
+#
+#       - name: Install Checkov 3.3.1
+#         run: pip install checkov==3.3.1
+#
+#       # Gate on any failed check, not --hard-fail-on HIGH.
+#       # See versions.md for the rationale.
+#       - name: Checkov on clean-module (gating)
+#         run: checkov --directory clean-module --quiet --compact
+#
+#       - name: Install Trivy 0.71.1
+#         run: |
+#           curl -sfL \
+#             https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+#             | sh -s -- -b /usr/local/bin v0.71.1
+#
+#       - name: Trivy config scan on clean-module (gating)
+#         run: |
+#           trivy config clean-module \
+#             --severity HIGH,CRITICAL \
+#             --exit-code 1

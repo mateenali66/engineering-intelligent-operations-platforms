@@ -1,0 +1,56 @@
+{
+  "_comment": "Fixed labeled query set for the Incident Copilot. gold is a list of {doc_id, heading} pairs resolved to chunk ids at runtime. Weighted toward identifier-heavy queries (error codes, hostnames, K8s reasons) where dense-only retrieval underperforms and hybrid fixes it.",
+  "queries": [
+    {
+      "query": "INC-4822 payments gateway mitigation",
+      "gold": [{"doc_id": "payments-incidents", "heading": "Mitigating incident INC-4822 on the payments gateway"}]
+    },
+    {
+      "query": "ORA-00600 billing",
+      "gold": [{"doc_id": "billing-db", "heading": "Resolving ORA-00600 internal error on the billing DB"}]
+    },
+    {
+      "query": "checkout pod CrashLoopBackOff",
+      "gold": [{"doc_id": "checkout-pod", "heading": "CrashLoopBackOff on the checkout pod: triage"}]
+    },
+    {
+      "query": "prod-checkout-7f9c outage",
+      "gold": [
+        {"doc_id": "pm-checkout-outage", "heading": "Root cause"},
+        {"doc_id": "pm-checkout-outage", "heading": "Summary"}
+      ]
+    },
+    {
+      "query": "502 Bad Gateway ingress",
+      "gold": [{"doc_id": "ingress", "heading": "502 Bad Gateway from the ingress controller"}]
+    },
+    {
+      "query": "kafka consumer lag orders topic",
+      "gold": [{"doc_id": "kafka", "heading": "Consumer lag on the orders topic"}]
+    },
+    {
+      "query": "Redis OOM maxmemory policy",
+      "gold": [{"doc_id": "redis", "heading": "Redis OOM and maxmemory policy"}]
+    },
+    {
+      "query": "rotate TLS certificate ingress",
+      "gold": [{"doc_id": "ingress", "heading": "Rotating TLS certificates on the ingress"}]
+    },
+    {
+      "query": "rebalancing storm orders consumer group",
+      "gold": [{"doc_id": "kafka", "heading": "Rebalancing storms in the orders consumer group"}]
+    },
+    {
+      "query": "billing DB replica failover",
+      "gold": [{"doc_id": "billing-db", "heading": "Failover for the billing DB replica"}]
+    },
+    {
+      "query": "session cache evictions",
+      "gold": [{"doc_id": "redis", "heading": "Evictions on the session cache"}]
+    },
+    {
+      "query": "checkout stuck how to force a clean restart",
+      "gold": [{"doc_id": "checkout-pod", "heading": "Emergency restart procedure"}]
+    }
+  ]
+}

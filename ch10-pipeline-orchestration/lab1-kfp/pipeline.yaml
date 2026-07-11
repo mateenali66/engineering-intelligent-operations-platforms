@@ -1,0 +1,298 @@
+# PIPELINE DEFINITION
+# Name: anomaly-detector-retrain
+components:
+  comp-condition-1:
+    dag:
+      tasks:
+        register:
+          cachingOptions:
+            enableCache: true
+          componentRef:
+            name: comp-register
+          inputs:
+            artifacts:
+              model:
+                componentInputArtifact: pipelinechannel--train-model
+            parameters:
+              auc:
+                componentInputParameter: pipelinechannel--train-Output
+          taskInfo:
+            name: register
+    inputDefinitions:
+      artifacts:
+        pipelinechannel--train-model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        pipelinechannel--evaluate-Output:
+          parameterType: BOOLEAN
+        pipelinechannel--train-Output:
+          parameterType: NUMBER_DOUBLE
+  comp-evaluate:
+    executorLabel: exec-evaluate
+    inputDefinitions:
+      parameters:
+        auc:
+          parameterType: NUMBER_DOUBLE
+        baseline:
+          defaultValue: 0.9
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: BOOLEAN
+  comp-ingest:
+    executorLabel: exec-ingest
+    outputDefinitions:
+      artifacts:
+        features:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-register:
+    executorLabel: exec-register
+    inputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        auc:
+          parameterType: NUMBER_DOUBLE
+  comp-train:
+    executorLabel: exec-train
+    inputDefinitions:
+      artifacts:
+        features:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        Output:
+          parameterType: NUMBER_DOUBLE
+deploymentSpec:
+  executors:
+    exec-evaluate:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate(auc: float, baseline: float = 0.90) -> bool:\n    \"\
+          \"\"Gate on the registered baseline; register only when the new model clears\
+          \ it.\"\"\"\n    return auc >= baseline\n\n"
+        image: python:3.12
+    exec-ingest:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - ingest
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas==2.3.3'\
+          \ 'pyarrow==24.0.0' 'numpy==2.4.6'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.16.1' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef ingest(features: dsl.Output[dsl.Dataset]):\n    \"\"\"Read the\
+          \ windowed feature table the Chapter 3 job wrote to the telemetry lake.\"\
+          \"\"\n    import numpy as np\n    import pandas as pd\n    rng = np.random.default_rng(42)\n\
+          \    rows = np.vstack([rng.normal(0, 1, (800, 6)), rng.normal(3, 1, (80,\
+          \ 6))])\n    df = pd.DataFrame(rows, columns=[f\"f{i}\" for i in range(6)])\n\
+          \    df[\"label\"] = ([0] * 800) + ([1] * 80)\n    df.to_parquet(features.path)\n\
+          \n"
+        image: python:3.12
+    exec-register:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - register
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'mlflow==3.14.0'\
+          \ 'scikit-learn==1.9.0'  &&  python3 -m pip install --quiet --no-warn-script-location\
+          \ 'kfp==2.16.1' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"\
+          3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef register(model: dsl.Input[dsl.Model], auc: float):\n    \"\"\"\
+          Log and register a new anomaly-detector version into the Chapter 9 registry.\n\
+          \n    Reads the tracking URI from MLFLOW_TRACKING_URI. The sqlite default\
+          \ fits the\n    local, single-directory path; on a real backend each component\
+          \ is its own pod,\n    so point this at a reachable MLflow server to reach\
+          \ the durable registry.\n    \"\"\"\n    import os\n\n    import joblib\n\
+          \    import mlflow\n    import mlflow.sklearn\n    mlflow.set_tracking_uri(os.environ.get(\"\
+          MLFLOW_TRACKING_URI\", \"sqlite:///mlflow.db\"))\n    mlflow.set_experiment(\"\
+          aiosp-anomaly-detector\")\n    clf = joblib.load(model.path)\n    with mlflow.start_run():\n\
+          \        mlflow.log_metric(\"auc\", auc)\n        mlflow.sklearn.log_model(sk_model=clf,\
+          \ name=\"model\",\n                                 registered_model_name=\"\
+          anomaly-detector\")\n\n"
+        image: python:3.12
+    exec-train:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'scikit-learn==1.9.0'\
+          \ 'pandas==2.3.3' 'pyarrow==24.0.0'  &&  python3 -m pip install --quiet\
+          \ --no-warn-script-location 'kfp==2.16.1' '--no-deps' 'typing-extensions>=3.7.4,<5;\
+          \ python_version<\"3.9\"' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train(features: dsl.Input[dsl.Dataset], model: dsl.Output[dsl.Model])\
+          \ -> float:\n    \"\"\"Fit the Chapter 6 Isolation Forest; return AUC under\
+          \ the Chapter 6 sign convention.\"\"\"\n    import joblib\n    import pandas\
+          \ as pd\n    from sklearn.ensemble import IsolationForest\n    from sklearn.metrics\
+          \ import roc_auc_score\n    from sklearn.model_selection import train_test_split\n\
+          \    df = pd.read_parquet(features.path)\n    y = df.pop(\"label\").to_numpy()\n\
+          \    X = df.to_numpy()\n    # Held-out split, the same one Chapter 9 registered\
+          \ on; never score the gate on training rows.\n    X_train, X_val, y_train,\
+          \ y_val = train_test_split(\n        X, y, test_size=0.3, stratify=y, random_state=42\n\
+          \    )\n    clf = IsolationForest(n_estimators=100, contamination=0.1, random_state=42).fit(X_train)\n\
+          \    auc = float(roc_auc_score(y_val, -clf.score_samples(X_val)))\n    joblib.dump(clf,\
+          \ model.path)\n    return auc\n\n"
+        image: python:3.12
+pipelineInfo:
+  name: anomaly-detector-retrain
+root:
+  dag:
+    tasks:
+      condition-1:
+        componentRef:
+          name: comp-condition-1
+        dependentTasks:
+        - evaluate
+        - train
+        inputs:
+          artifacts:
+            pipelinechannel--train-model:
+              taskOutputArtifact:
+                outputArtifactKey: model
+                producerTask: train
+          parameters:
+            pipelinechannel--evaluate-Output:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: evaluate
+            pipelinechannel--train-Output:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: train
+        taskInfo:
+          name: baseline-cleared
+        triggerPolicy:
+          condition: inputs.parameter_values['pipelinechannel--evaluate-Output'] ==
+            true
+      evaluate:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate
+        dependentTasks:
+        - train
+        inputs:
+          parameters:
+            auc:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: train
+        taskInfo:
+          name: evaluate
+      ingest:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-ingest
+        taskInfo:
+          name: ingest
+      train:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train
+        dependentTasks:
+        - ingest
+        inputs:
+          artifacts:
+            features:
+              taskOutputArtifact:
+                outputArtifactKey: features
+                producerTask: ingest
+        taskInfo:
+          name: train
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.16.1

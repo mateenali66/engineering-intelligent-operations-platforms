@@ -1,0 +1,19 @@
+# Simplified KServe InferenceService for model serving
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: anomaly-detector
+  namespace: ml-serving
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: s3://models/anomaly-detector/v3
+      resources:
+        requests:
+          cpu: "2"
+          memory: 4Gi
+        limits:
+          cpu: "4"
+          memory: 8Gi

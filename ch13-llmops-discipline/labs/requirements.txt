@@ -1,0 +1,32 @@
+# Chapter 13: LLMOps labs. Pinned, CI-tested versions.
+# The two CI-runnable labs (OTel GenAI span emission + assertion, DeepEval
+# exact-match eval gate) resolve and run together in ONE Python 3.14 environment.
+# No LLM API key, no network egress, no collector, no GPU.
+#
+# Python 3.14 works here (verified with `uv venv --python 3.14`): both
+# opentelemetry 1.42.1 and deepeval 4.0.6 require only python >=3.10/>=3.9 and
+# install cleanly on 3.14. This is the first Part-IV chapter that does NOT need
+# the 3.12 pin Ch11 (MLServer) and Ch12 (NannyML) hit.
+
+# --- Lab 1: OpenTelemetry GenAI span emission + in-memory assertion -----------
+opentelemetry-api==1.42.1
+opentelemetry-sdk==1.42.1
+opentelemetry-semantic-conventions==0.63b1
+# OTLP exporter is imported only by the validation-only Langfuse export path in
+# lab1; pinned so that path compiles. Not exercised in CI.
+opentelemetry-exporter-otlp==1.42.1
+
+# --- Lab 2: DeepEval offline eval gate (ExactMatchMetric, no API key) ---------
+# ExactMatchMetric is a deterministic string-equality metric: no LLM, no key,
+# zero token cost. assert_test gives the pytest gate. deepeval 4.0.6 bundles a
+# pytest plugin, so `pytest lab2_eval_gate.py` and `deepeval test run` both work.
+deepeval==4.0.6
+pytest==8.4.2
+
+# NOTE: Ragas is intentionally NOT pinned here. It is the production/online RAG
+# metric (lab2_ragas_online.py, validation-only). ragas==0.4.3 could not be
+# imported offline in the verified mid-2026 environment: it pulls
+# langchain_community.chat_models.vertexai at import time, which the
+# langchain-community 0.4.x line removed, so even its non-LLM ExactMatch metric
+# is unreachable without an LLM-stack install that CI does not carry. The
+# DeepEval gate above is the offline path; Ragas runs locally with a judge model.

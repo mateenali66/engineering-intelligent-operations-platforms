@@ -1,0 +1,41 @@
+groups:
+  - name: ml-monitoring
+    rules:
+      # Fires when CBPE's label-free estimated ROC AUC for the anomaly-detector
+      # drops below the retraining threshold. The ml_estimated_roc_auc gauge is
+      # exported by the CBPE lab (Listing 12-2); the drift gauges below come from
+      # the Evidently lab (Listing 12-3).
+      - alert: AnomalyDetectorEstimatedAUCLow
+        expr: ml_estimated_roc_auc{model="anomaly-detector"} < 0.90
+        for: 15m
+        labels:
+          severity: warning
+          team: aiops
+        annotations:
+          summary: "anomaly-detector estimated ROC AUC below 0.90"
+          description: >
+            CBPE estimates ROC AUC at {{ $value | printf "%.3f" }} for
+            anomaly-detector over the last 15m, under the 0.90 retraining gate.
+            No ground-truth labels are required for this signal. Check the
+            Evidently drift gauges and the ADWIN change log, then backfill
+            labels before deciding to retrain.
+
+      # Fires when Evidently reports a majority of feature columns drifting.
+      # Section 12.6 rule: this alert must never page. It annotates the
+      # performance alert above; covariate drift fires constantly in healthy
+      # systems, so paging on it teaches operators to mute it. severity: info
+      # routes it to a ticket, not a pager. Page on AnomalyDetectorEstimatedAUCLow
+      # instead and investigate this drift signal after the page.
+      - alert: AnomalyDetectorFeatureDriftHigh
+        expr: ml_drift_share{model="anomaly-detector"} > 0.5
+        for: 15m
+        labels:
+          severity: info
+          team: aiops
+        annotations:
+          summary: "anomaly-detector input drift above 50 percent of features"
+          description: >
+            Evidently flags {{ $value | humanizePercentage }} of feature
+            columns as drifted for anomaly-detector. Multivariate drift usually
+            precedes a measurable performance drop; correlate with the estimated
+            ROC AUC gauge.

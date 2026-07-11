@@ -1,0 +1,8 @@
+{
+  "name": "anomaly-detector",
+  "implementation": "mlserver_sklearn.SKLearnModel",
+  "parameters": {
+    "uri": "./anomaly-detector.joblib",
+    "version": "v1"
+  }
+}

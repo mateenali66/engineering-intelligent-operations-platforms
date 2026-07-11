@@ -1,0 +1,28 @@
+# Lab B: serve the anomaly-detector as a KServe InferenceService (sklearn runtime).
+# Current schema: the generic spec.predictor.model with modelFormat.name: sklearn,
+# NOT the deprecated framework-specific spec.predictor.sklearn. protocolVersion v2
+# selects the Open Inference Protocol (MLServer); minReplicas 0 is Knative
+# scale-to-zero. Validated with yamllint; a real apply needs a KServe + Knative
+# cluster, so it is not run in CI.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: anomaly-detector
+  namespace: kserve-test
+spec:
+  predictor:
+    minReplicas: 0          # Knative scale-to-zero: no pods when idle
+    model:
+      modelFormat:
+        name: sklearn       # current form, not spec.predictor.sklearn
+      protocolVersion: v2   # KServe V2 / Open Inference Protocol (MLServer)
+      runtime: kserve-sklearnserver
+      storageUri: "s3://aiosp-models/anomaly-detector/1"  # handed off from Chapter 9 (placeholder bucket)
+      # without a registry, use KServe's public sample: gs://kserve-examples/models/sklearn/1.0/model
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 100m
+          memory: 256Mi

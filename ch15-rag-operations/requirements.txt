@@ -1,0 +1,37 @@
+# Chapter 15: RAG for Operations. Pinned, CI-tested. Python 3.12.
+# The deterministic labs (ingest, dense + tsvector BM25-style + RRF, FlashRank
+# rerank, hit-rate / precision A/B, deterministic eval gate) run headless with
+# NO API key and NO GPU against a pgvector/pgvector:pg17 service container.
+#
+# Python 3.12 (not 3.14): the torch + onnxruntime + transformers stack is most
+# reliably resolvable on 3.12, the same heavy-ML interpreter Ch11/Ch12 pin.
+
+# --- Postgres client + pgvector type adapter -------------------------------------
+psycopg[binary]==3.3.4          # psycopg3; [binary] ships the libpq wheel, no system pg
+pgvector==0.4.2                 # the Python client adapter (pgvector.psycopg.register_vector)
+                                # NOTE: this is the CLIENT lib; the SERVER extension is
+                                # pgvector 0.8.3, bundled in the pg17 service image.
+
+# --- Local embeddings (CI default; production is text-embedding-3-large) ---------
+sentence-transformers==5.6.0    # pulls torch + transformers (CPU); model all-MiniLM-L6-v2
+
+# --- Local reranker (CI default; production is Cohere Rerank 3.5 / bge-reranker) -
+flashrank==0.2.10               # pure-pip ONNX cross-encoder; onnxruntime CPU
+
+# --- Tests -----------------------------------------------------------------------
+pytest==8.4.2
+
+# --- VALIDATION-ONLY, compile-checked, never executed in CI ----------------------
+# trulens-core imports cleanly (verified) so the RAG-triad wiring compiles; its
+# feedback functions need an LLM judge, so they are validation-only.
+trulens-core==2.8.1
+# Ragas is NOT pinned here and NOT installed in CI. ragas==0.4.3 CANNOT be imported
+# in a current environment: ragas/llms/base.py does
+#   from langchain_community.chat_models.vertexai import ChatVertexAI
+# at import time, and langchain-community 0.4.2 (being sunset) removed that module;
+# no pin coexists with the langchain 1.x line. eval_ragas.py is py_compile-checked
+# only and documents the production Ragas path.
+#
+# langchain/langgraph (create_agent agentic-RAG) are likewise validation-only and
+# only needed to run agent.py locally with a key:
+#   langchain==1.3.10  langgraph==1.2.6   (create_agent is in langchain.agents)

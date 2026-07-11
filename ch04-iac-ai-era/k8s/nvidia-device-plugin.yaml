@@ -1,0 +1,40 @@
+# Listing 4-1. Minimal NVIDIA device-plugin DaemonSet.
+# A GPU is not schedulable by Kubernetes until a device plugin advertises it.
+# This DaemonSet runs on GPU nodes, tolerates the node group's taint, and
+# registers nvidia.com/gpu as an allocatable resource so the scheduler can
+# place GPU pods. On EKS the managed nvidia-device-plugin add-on installs the
+# same object for you.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-device-plugin-daemonset
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: nvidia-device-plugin
+  template:
+    metadata:
+      labels:
+        name: nvidia-device-plugin
+    spec:
+      # Run only on GPU nodes, and tolerate the node group's taint.
+      nodeSelector:
+        workload-type: gpu
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      priorityClassName: system-node-critical
+      containers:
+        - name: nvidia-device-plugin
+          image: nvcr.io/nvidia/k8s-device-plugin:v0.17.0
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins

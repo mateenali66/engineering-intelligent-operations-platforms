@@ -1,0 +1,696 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "checkout"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "spanmetricsconnector"
+          },
+          "metrics": [
+            {
+              "name": "traces.span.metrics.calls",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /checkout"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791200000000000",
+                    "timeUnixNano": "1781791215000000000",
+                    "asInt": "30"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /checkout"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791215000000000",
+                    "timeUnixNano": "1781791230000000000",
+                    "asInt": "30"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /checkout"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791230000000000",
+                    "timeUnixNano": "1781791245000000000",
+                    "asInt": "30"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /checkout"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791245000000000",
+                    "timeUnixNano": "1781791260000000000",
+                    "asInt": "30"
+                  }
+                ],
+                "aggregationTemporality": "AGGREGATION_TEMPORALITY_DELTA",
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "traces.span.metrics.duration",
+              "unit": "ms",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /checkout"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791200000000000",
+                    "timeUnixNano": "1781791215000000000",
+                    "count": "30",
+                    "sum": 1236.0,
+                    "bucketCounts": [
+                      "12",
+                      "10",
+                      "5",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /checkout"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791215000000000",
+                    "timeUnixNano": "1781791230000000000",
+                    "count": "30",
+                    "sum": 1236.0,
+                    "bucketCounts": [
+                      "12",
+                      "10",
+                      "5",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /checkout"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791230000000000",
+                    "timeUnixNano": "1781791245000000000",
+                    "count": "30",
+                    "sum": 1236.0,
+                    "bucketCounts": [
+                      "12",
+                      "10",
+                      "5",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /checkout"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791245000000000",
+                    "timeUnixNano": "1781791260000000000",
+                    "count": "30",
+                    "sum": 1236.0,
+                    "bucketCounts": [
+                      "12",
+                      "10",
+                      "5",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  }
+                ],
+                "aggregationTemporality": "AGGREGATION_TEMPORALITY_DELTA"
+              }
+            },
+            {
+              "name": "jvm.memory.used",
+              "unit": "By",
+              "gauge": {
+                "dataPoints": [
+                  {
+                    "timeUnixNano": "1781791215000000000",
+                    "asDouble": 512000000.0
+                  },
+                  {
+                    "timeUnixNano": "1781791230000000000",
+                    "asDouble": 513000000.0
+                  },
+                  {
+                    "timeUnixNano": "1781791245000000000",
+                    "asDouble": 514000000.0
+                  },
+                  {
+                    "timeUnixNano": "1781791260000000000",
+                    "asDouble": 515000000.0
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "payment"
+            }
+          }
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {
+            "name": "spanmetricsconnector"
+          },
+          "metrics": [
+            {
+              "name": "traces.span.metrics.calls",
+              "sum": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791200000000000",
+                    "timeUnixNano": "1781791215000000000",
+                    "asInt": "14"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791215000000000",
+                    "timeUnixNano": "1781791230000000000",
+                    "asInt": "14"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791230000000000",
+                    "timeUnixNano": "1781791245000000000",
+                    "asInt": "14"
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791245000000000",
+                    "timeUnixNano": "1781791260000000000",
+                    "asInt": "14"
+                  }
+                ],
+                "aggregationTemporality": "AGGREGATION_TEMPORALITY_DELTA",
+                "isMonotonic": true
+              }
+            },
+            {
+              "name": "traces.span.metrics.duration",
+              "unit": "ms",
+              "histogram": {
+                "dataPoints": [
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791200000000000",
+                    "timeUnixNano": "1781791215000000000",
+                    "count": "14",
+                    "sum": 1239.0,
+                    "bucketCounts": [
+                      "2",
+                      "4",
+                      "5",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791215000000000",
+                    "timeUnixNano": "1781791230000000000",
+                    "count": "14",
+                    "sum": 1239.0,
+                    "bucketCounts": [
+                      "2",
+                      "4",
+                      "5",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791230000000000",
+                    "timeUnixNano": "1781791245000000000",
+                    "count": "14",
+                    "sum": 1239.0,
+                    "bucketCounts": [
+                      "2",
+                      "4",
+                      "5",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_OK"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791245000000000",
+                    "timeUnixNano": "1781791260000000000",
+                    "count": "14",
+                    "sum": 1239.0,
+                    "bucketCounts": [
+                      "2",
+                      "4",
+                      "5",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_ERROR"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791215000000000",
+                    "timeUnixNano": "1781791230000000000",
+                    "count": "2",
+                    "sum": 380.0,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "1",
+                      "1",
+                      "0"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  },
+                  {
+                    "attributes": [
+                      {
+                        "key": "span.name",
+                        "value": {
+                          "stringValue": "POST /charge"
+                        }
+                      },
+                      {
+                        "key": "span.kind",
+                        "value": {
+                          "stringValue": "SPAN_KIND_SERVER"
+                        }
+                      },
+                      {
+                        "key": "status.code",
+                        "value": {
+                          "stringValue": "STATUS_CODE_ERROR"
+                        }
+                      }
+                    ],
+                    "startTimeUnixNano": "1781791245000000000",
+                    "timeUnixNano": "1781791260000000000",
+                    "count": "3",
+                    "sum": 720.0,
+                    "bucketCounts": [
+                      "0",
+                      "0",
+                      "0",
+                      "2",
+                      "1"
+                    ],
+                    "explicitBounds": [
+                      25.0,
+                      50.0,
+                      100.0,
+                      250.0
+                    ]
+                  }
+                ],
+                "aggregationTemporality": "AGGREGATION_TEMPORALITY_DELTA"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

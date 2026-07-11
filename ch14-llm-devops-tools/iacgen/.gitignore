@@ -1,0 +1,8 @@
+# Local toolchain and build artifacts; not committed.
+.venv/
+.tools/
+*.sarif
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/

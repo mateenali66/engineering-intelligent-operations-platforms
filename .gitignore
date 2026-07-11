@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+.ruff_cache/
+.deepeval/
+.deepeval-cache.json
+
+# ML artifacts and data (do not commit large binaries or datasets)
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.joblib
+*.pkl
+mlruns/
+data/
+datasets/
+*.csv
+*.parquet
+
+# Secrets and local config
+.env
+*.tfvars
+*.pem
+kubeconfig
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,20 @@
+# Group entities for the scaffolder's OwnerPicker field.
+# Register this file with a catalog location rule that allows Group and User,
+# or the picker dropdown stays empty (the default rules do not ingest Groups).
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: team-payments
+  description: Owns payment processing services
+spec:
+  type: team
+  children: []
+---
+apiVersion: backstage.io/v1alpha1
+kind: Group
+metadata:
+  name: team-platform
+  description: Owns the internal developer platform
+spec:
+  type: team
+  children: []

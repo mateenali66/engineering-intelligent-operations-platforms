@@ -1,0 +1,29 @@
+# AIOps workload: the Chapter 6 anomaly detector, a scikit-learn IsolationForest.
+# Served by KServe as a PREDICTIVE model (modelFormat: sklearn).
+# Same InferenceService kind that serves the generative incident-copilot.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: anomaly-detector
+  namespace: aiops
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      protocolVersion: v2
+      # The shared observability substrate: the model server exports OTLP to the
+      # one platform Collector Service. The convergence check reads THIS env var
+      # (behavior, not a label) and asserts it is identical across every workload
+      # and resolves to the Collector the platform actually runs.
+      env:
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.observability:4318
+      # PUBLIC EXAMPLE ARTIFACT: the sklearn model from the official KServe
+      # examples bucket, a stand-in so the service reaches Ready without a
+      # bucket of your own. Swap in your trained detector's storageUri.
+      storageUri: gs://kfserving-examples/models/sklearn/1.0/model
+      resources:
+        requests:
+          cpu: "1"
+          memory: 1Gi

@@ -1,0 +1,27 @@
+# MLOps workload: a supervised churn classifier. Part III assembled the anomaly
+# detector's ML lifecycle; the churn model is a SECOND predictive workload added
+# here so the MLOps thread stands on its own as a separate tenant and the platform
+# proves it generalizes. Served by KServe as a PREDICTIVE model (modelFormat:
+# sklearn), the same path the AIOps detector uses: two predictive disciplines,
+# one serving API.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: churn-model
+  namespace: mlops
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      protocolVersion: v2
+      env:
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://otel-collector.observability:4318
+      # PUBLIC EXAMPLE ARTIFACT: the same KServe example model, standing in for
+      # your own trained churn model until you have a storageUri of your own.
+      storageUri: gs://kfserving-examples/models/sklearn/1.0/model
+      resources:
+        requests:
+          cpu: "1"
+          memory: 1Gi

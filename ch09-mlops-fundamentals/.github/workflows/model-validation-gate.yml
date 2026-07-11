@@ -1,0 +1,28 @@
+# Listing 9-3: a GitHub Actions gate that blocks promotion on metric regression.
+# A job fails when any step exits non-zero, so the gate is just the validation
+# script. With branch protection requiring this check, a regression blocks the PR.
+name: model-validation-gate
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Produce candidate and baseline metrics
+        run: python produce_metrics.py
+
+      - name: Block promotion on metric regression
+        run: python scripts/validate_metric.py

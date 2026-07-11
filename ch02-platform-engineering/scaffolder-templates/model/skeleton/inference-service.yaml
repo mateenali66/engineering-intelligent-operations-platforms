@@ -1,0 +1,30 @@
+# Backstage scaffolder skeleton file (templated, not standalone YAML).
+# The fetch:template step renders ${{ values.* }} and {% if %} logic.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: ${{ values.modelName }}
+  namespace: ml-serving
+  labels:
+    backstage.io/kubernetes-id: ${{ values.modelName }}
+    owner: ${{ values.owner }}
+  annotations:
+    argocd/app-name: ${{ values.modelName }}
+    prometheus.io/scrape: "true"
+spec:
+  predictor:
+    minReplicas: ${{ values.minReplicas }}
+    model:
+      modelFormat:
+        name: ${{ values.modelFormat }}
+      storageUri: ${{ values.storageUri }}
+      resources:
+        requests:
+          cpu: "2"
+          memory: 4Gi
+        limits:
+          cpu: "4"
+          memory: 8Gi
+{%- if values.gpuCount %}
+          nvidia.com/gpu: "${{ values.gpuCount }}"
+{%- endif %}

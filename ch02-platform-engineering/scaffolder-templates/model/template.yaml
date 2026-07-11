@@ -1,0 +1,68 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: model-serving-kserve
+  title: Deploy a model with KServe
+  description: >
+    Deploy a trained model as a KServe InferenceService and
+    register it in the service catalog.
+spec:
+  owner: team-platform
+  type: service
+  parameters:
+    - title: Model details
+      required: [modelName, owner, modelFormat, storageUri]
+      properties:
+        modelName:
+          title: Model name
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        owner:
+          title: Owner
+          type: string
+          ui:field: OwnerPicker
+        modelFormat:
+          title: Model format
+          type: string
+          enum: [sklearn, xgboost, tensorflow, pytorch, onnx]
+        storageUri:
+          title: Model storage URI
+          type: string
+          description: Where the trained artifact lives, e.g. s3://models/anomaly-detector/v3
+        minReplicas:
+          title: Minimum replicas
+          type: integer
+          default: 1
+        gpuCount:
+          title: GPUs per replica (leave empty for CPU serving)
+          type: integer
+  steps:
+    - id: fetch
+      name: Render InferenceService
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          modelName: ${{ parameters.modelName }}
+          owner: ${{ parameters.owner }}
+          modelFormat: ${{ parameters.modelFormat }}
+          storageUri: ${{ parameters.storageUri }}
+          minReplicas: ${{ parameters.minReplicas }}
+          gpuCount: ${{ parameters.gpuCount }}
+    - id: publish
+      name: Publish to Git
+      action: publish:github
+      input:
+        repoUrl: github.com?owner=saas-team&repo=${{ parameters.modelName }}
+        defaultBranch: main
+    - id: register
+      name: Register in catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+  output:
+    links:
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps.register.output.entityRef }}

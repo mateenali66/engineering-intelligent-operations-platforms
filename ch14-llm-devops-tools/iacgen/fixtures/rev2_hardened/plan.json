@@ -1,0 +1,77 @@
+{
+  "format_version": "1.2",
+  "_comment": "RECORDED plan JSON for rev2_hardened. Both buckets (telemetry and telemetry_logs) have a matching aws_s3_bucket_server_side_encryption_configuration, so the s3_encryption.rego house rule passes. Recorded so the gate runs headless in CI (no terraform init, no AWS creds, no network), mirroring the Chapter 4 policy/testdata fixtures.",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.telemetry",
+      "type": "aws_s3_bucket",
+      "name": "telemetry",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "telemetry-lake"
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket_server_side_encryption_configuration.telemetry",
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "name": "telemetry",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "${aws_s3_bucket.telemetry.id}",
+          "rule": [
+            {
+              "apply_server_side_encryption_by_default": [
+                {
+                  "sse_algorithm": "aws:kms",
+                  "kms_master_key_id": "arn:aws:kms:us-east-1:123456789012:key/mrk-abc123"
+                }
+              ],
+              "bucket_key_enabled": true
+            }
+          ]
+        },
+        "after_unknown": {
+          "bucket": true
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket.telemetry_logs",
+      "type": "aws_s3_bucket",
+      "name": "telemetry_logs",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "telemetry-lake-logs"
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket_server_side_encryption_configuration.telemetry_logs",
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "name": "telemetry_logs",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "bucket": "${aws_s3_bucket.telemetry_logs.id}",
+          "rule": [
+            {
+              "apply_server_side_encryption_by_default": [
+                {
+                  "sse_algorithm": "AES256"
+                }
+              ],
+              "bucket_key_enabled": false
+            }
+          ]
+        },
+        "after_unknown": {
+          "bucket": true
+        }
+      }
+    }
+  ]
+}

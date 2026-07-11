@@ -1,0 +1,1258 @@
+name: ci
+
+# Validates every committed code listing so printed code does not rot.
+# One job per concern; each job is independently gating.
+#
+# Chapter coverage:
+#   yaml-lint   : ch02 catalog-info.yaml, ch03 OTel Collector config and operator CR
+#   ch03-python : ch03 Python listings (ruff lint + py_compile with pinned deps)
+#                 + cluster-free feature-pipeline smoke test on an OTLP fixture
+#   ch05..ch09  : per-chapter Python labs (lint + end-to-end run/registry/gate)
+#   ch10-kfp    : ch10 Kubeflow Pipelines v2 listing compiles to IR (shape asserted)
+#   ch10-airflow: ch10 Airflow 3 asset DAG parses (DagBag, no scheduler)
+#   ch10-zenml  : ch10 ZenML pipeline runs on the local stack
+#   ch10-dvc    : ch10 DVC caching demo, second repro must skip both stages
+#   ch11-serving: ch11 serve anomaly-detector via MLServer (KServe V2) + load test
+#   ch12-monitor: ch12 NannyML CBPE + Evidently->Prometheus + River ADWIN, one 3.12 venv
+#   ch13-llmops : ch13 OTel GenAI span emission+assertion + DeepEval offline eval gate, 3.14 venv
+#   ch14-iacgen : ch14 bounded generate-scan-repair loop (Checkov+Trivy parallel) + OPA gate + SARIF
+#   ch15-rag    : ch15 pgvector hybrid (dense+tsvector+RRF) + FlashRank rerank + contextual A/B + eval gate
+#   ch16-guardrails: ch16 layered guardrail proxy + attack harness (input/containment/output) + pickle-danger demo
+#   ch17-platform: ch17 AIOSP convergence check over the GitOps manifests + unified infra+gen_ai trace, one 3.12 venv
+#   ch18-future : ch18 agent control plane (L2 two-PR assist-and-approve + guardian red button), pure stdlib, one 3.12 venv
+#   iac-clean   : ch04 clean-module passes Checkov and Trivy (GATING)
+#   iac-insecure: ch04 generated-module expected to fail scanners (NON-GATING, teaching artifact)
+#   iac-policy  : ch04 Conftest/OPA policy tests against fixture plan JSON
+#
+# Excluded from YAML lint:
+#   ch02/scaffolder-templates/model/skeleton/inference-service.yaml
+#     This is a Backstage fetch:template skeleton. It contains Jinja2-style
+#     {%- if %} blocks that are not valid YAML tokens. yamllint cannot parse it.
+#     The file is tested at runtime by the Backstage scaffolder, not statically.
+#   ch02/scaffolder-templates/service/template.yaml
+#     This file contains ${{ parameters.name }} Backstage scaffolder expressions.
+#     yamllint parses it without error (the ${{ }} strings are valid YAML scalars),
+#     but the values only make sense when rendered by the scaffolder. We lint it to
+#     catch structural YAML errors while accepting that the expressions are opaque
+#     to the linter.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # Job 1: YAML structural lint
+  # Validates plain-YAML files that are not Jinja2/scaffolder skeletons.
+  # Rules: line-length up to 120 (comments in config files routinely hit 80),
+  # document-start warning suppressed (config files do not all begin with ---).
+  # ---------------------------------------------------------------------------
+  yaml-lint:
+    name: YAML lint
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install yamllint 1.35.1
+        run: pip install yamllint==1.35.1
+
+      # ch02: Backstage service catalog entry (plain YAML, lintable).
+      # ch02 scaffolder template.yaml is also plain YAML and is included here.
+      # ch02 skeleton/inference-service.yaml is EXCLUDED: contains {%- if %}
+      # Jinja2 blocks that break the YAML parser (see workflow header comment).
+      - name: Lint ch02 catalog-info.yaml and scaffolder template
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch02-platform-engineering/catalog-info.yaml \
+            ch02-platform-engineering/scaffolder-templates/service/template.yaml
+
+      # ch03: OpenTelemetry Collector config and operator custom resources.
+      - name: Lint ch03 OTel YAML
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch03-observability/collector-config/otel-collector-config.yaml \
+            ch03-observability/operator/otel-collector-cr.yaml
+
+      # Structural guard for the ch03 dual-routing lesson (Sections 3.5/3.7):
+      # the S3 lake must receive the FULL stream, so awss3 must never appear
+      # in a pipeline that also runs tail_sampling.
+      - name: Assert no ch03 pipeline tail-samples the lake path
+        run: |
+          python - <<'EOF'
+          import yaml
+          files = [
+              "ch03-observability/collector-config/otel-collector-config.yaml",
+              "ch03-observability/operator/otel-collector-cr.yaml",
+          ]
+          for path in files:
+              for doc in yaml.safe_load_all(open(path)):
+                  if not isinstance(doc, dict):
+                      continue
+                  cfg = doc.get("spec", {}).get("config", doc)
+                  pipes = cfg.get("service", {}).get("pipelines", {})
+                  for name, pipe in pipes.items():
+                      sampled = "tail_sampling" in pipe.get("processors", [])
+                      to_lake = "awss3" in pipe.get("exporters", [])
+                      assert not (sampled and to_lake), \
+                          f"{path}: pipeline {name} tail-samples the lake"
+          print("lake never tail-sampled: ok")
+          EOF
+
+      # ch05: Argo Workflows remediation runbook (plain YAML once templated
+      # scalars are quoted; the {{ }} params are valid quoted strings).
+      - name: Lint ch05 Argo remediation YAML
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch05-intro-aiops/remediation/restart-deployment.yaml
+
+      # ch08: Chaos Mesh experiment manifests (chaos-mesh.org/v1alpha1).
+      - name: Lint ch08 Chaos Mesh manifests
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch08-chaos-engineering/experiments/pod-kill.yaml \
+            ch08-chaos-engineering/experiments/network-delay.yaml
+
+      # ch11: KServe InferenceService manifests (serving.kserve.io/v1beta1). These
+      # need a KServe + Knative cluster (and a GPU for the vLLM one) to apply, so CI
+      # validates their YAML structure only; the runnable serving path is ch11-serving.
+      - name: Lint ch11 KServe manifests
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch11-model-serving/manifests/inferenceservice-sklearn.yaml \
+            ch11-model-serving/manifests/inferenceservice-vllm-llm.yaml \
+            ch11-model-serving/manifests/inferenceservice-canary.yaml
+
+  # ---------------------------------------------------------------------------
+  # Job 2: ch03 Python listings
+  # Installs the chapter's pinned requirements then:
+  #   - runs ruff (no || true: lint failures are real failures)
+  #   - runs py_compile on every .py file to confirm imports resolve
+  #   - runs drain_templates.py end-to-end (it has no S3 dependency)
+  #   - runs run_smoke.py: a synthetic OTLP fixture flows through
+  #     flatten_otlp + extract_features with NO cluster and NO S3, and every
+  #     expected feature column must come out populated (the guard against
+  #     the silent-empty-feature-column failure Section 3.6 warns about)
+  # The __main__ paths of extract_features.py and flatten_otlp.py still need
+  # S3 I/O, so those entry points are exercised only via the smoke test's
+  # local parquet round-trip.
+  # ---------------------------------------------------------------------------
+  ch03-python:
+    name: ch03 Python lint and compile
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch03 pinned dependencies
+        run: |
+          pip install \
+            pandas==2.2.3 \
+            pyarrow==17.0.0 \
+            s3fs==2024.10.0 \
+            drain3==0.9.11 \
+            opentelemetry-proto==1.27.0
+
+      - name: Lint (ruff)
+        run: |
+          ruff check \
+            ch03-observability/feature-job/ \
+            ch03-observability/log-features/
+
+      - name: Compile-check all ch03 Python files
+        run: |
+          python -m py_compile ch03-observability/feature-job/extract_features.py
+          python -m py_compile ch03-observability/feature-job/flatten_otlp.py
+          python -m py_compile ch03-observability/feature-job/run_smoke.py
+          python -m py_compile ch03-observability/log-features/drain_templates.py
+
+      # drain_templates.py has embedded sample data and no external I/O.
+      # Running it proves the drain3 import and the template-mining logic execute.
+      - name: Run drain_templates.py end-to-end
+        run: python ch03-observability/log-features/drain_templates.py
+
+      # Cluster-free regression guard: spanmetrics-shaped OTLP protobuf in,
+      # populated feature table out, or the job fails loudly.
+      - name: Run the feature-pipeline smoke test (synthetic OTLP fixture)
+        working-directory: ch03-observability/feature-job
+        run: python run_smoke.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2b: ch05 Python listing
+  # decide.py is standard-library only. ruff lint, py_compile, and a full run
+  # of its embedded assertion suite over the four decision-gate cases.
+  # ---------------------------------------------------------------------------
+  ch05-python:
+    name: ch05 Python lint and run
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Lint (ruff)
+        run: ruff check ch05-intro-aiops/decision/
+
+      - name: Compile-check ch05 Python
+        run: python -m py_compile ch05-intro-aiops/decision/decide.py
+
+      # decide.py asserts all four gate outcomes and prints "ok" on success.
+      - name: Run decide.py assertion suite
+        run: python ch05-intro-aiops/decision/decide.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2c: ch06 anomaly-detection pipeline
+  # Installs the chapter's pinned requirements (CPU-only torch from the PyTorch
+  # CPU index), runs ruff, then run_smoke.py, which trains every model family on
+  # a synthetic slice and asserts the qualitative findings (AUC gate, density
+  # separation). The real leaderboard reproduces from the Zenodo deposit, not CI.
+  # ---------------------------------------------------------------------------
+  ch06-python:
+    name: ch06 anomaly-detection lint and run
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install CPU-only PyTorch
+        run: pip install torch==2.12.1 --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install ch06 pinned dependencies
+        run: |
+          pip install \
+            numpy==2.4.6 \
+            pandas==2.3.3 \
+            pyarrow==24.0.0 \
+            scikit-learn==1.9.0 \
+            fastapi==0.138.0 \
+            pydantic==2.12.5 \
+            "uvicorn[standard]==0.49.0" \
+            httpx==0.28.1
+
+      - name: Lint (ruff)
+        run: ruff check ch06-anomaly-detection/
+
+      - name: Compile-check all ch06 Python files
+        run: |
+          find ch06-anomaly-detection -name '*.py' -print0 \
+            | xargs -0 -n1 python -m py_compile
+
+      # Trains IF, the autoencoders, and DAGMM on a synthetic slice and asserts
+      # the AUC gate and density separation; prints "smoke: ok" on success.
+      - name: Run the end-to-end smoke test
+        working-directory: ch06-anomaly-detection
+        run: python run_smoke.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2d: ch07 FinOps cost-intelligence pipeline
+  # Pure-pip stack (no torch): scikit-learn + statsmodels. ruff, py_compile, then
+  # run_smoke.py ingests synthetic FOCUS billing, detects the spend spike with the
+  # Chapter 6 detector, forecasts with SARIMAX, and frames the result in dollars.
+  # ---------------------------------------------------------------------------
+  ch07-python:
+    name: ch07 FinOps pipeline lint and run
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch07 pinned dependencies
+        run: |
+          pip install \
+            numpy==2.4.6 \
+            pandas==2.3.3 \
+            scikit-learn==1.9.0 \
+            statsmodels==0.14.6
+
+      - name: Lint (ruff)
+        run: ruff check ch07-finops-aiops/
+
+      - name: Compile-check all ch07 Python files
+        run: |
+          find ch07-finops-aiops -name '*.py' -print0 \
+            | xargs -0 -n1 python -m py_compile
+
+      # Ingests FOCUS billing, flags the spend spike, forecasts, frames dollars.
+      - name: Run the end-to-end smoke test
+        working-directory: ch07-finops-aiops
+        run: python run_smoke.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2e: ch08 chaos-engineering flywheel
+  # Pure-pip stack. ruff, py_compile, then run_smoke.py injects a fault, confirms
+  # the Chapter 6 detector responds, runs the review gate, and round-trips the
+  # exported labels through Chapter 6's own loader (the flywheel made literal, so
+  # this job depends on ch06-anomaly-detection being checked out alongside).
+  # ---------------------------------------------------------------------------
+  ch08-python:
+    name: ch08 chaos flywheel lint and run
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch08 pinned dependencies
+        run: |
+          pip install \
+            numpy==2.4.6 \
+            pandas==2.3.3 \
+            pyarrow==24.0.0 \
+            scikit-learn==1.9.0 \
+            PyYAML==6.0.2
+
+      - name: Lint (ruff)
+        run: ruff check ch08-chaos-engineering/
+
+      - name: Compile-check all ch08 Python files
+        run: |
+          find ch08-chaos-engineering -name '*.py' -print0 \
+            | xargs -0 -n1 python -m py_compile
+
+      # Injects a fault, confirms the Ch6 detector responds, gates an LLM-drafted
+      # experiment, and round-trips labels through Chapter 6's loader.
+      - name: Run the end-to-end smoke test
+        working-directory: ch08-chaos-engineering
+        run: python run_smoke.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2f: ch09 MLOps fundamentals lab
+  # Trains the Chapter 6 detector, logs and registers it to a real SQLite-backed
+  # MLflow 3 registry, and runs the validation gate (pass on hold, block on
+  # regression). The DVC listing needs a MinIO/S3 remote, so it is not run here.
+  # ---------------------------------------------------------------------------
+  ch09-python:
+    name: ch09 MLOps lab lint and run
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch09 pinned dependencies
+        run: |
+          pip install \
+            mlflow==3.14.0 \
+            scikit-learn==1.9.0 \
+            numpy==2.4.6
+
+      - name: Lint (ruff)
+        run: ruff check ch09-mlops-fundamentals/
+
+      - name: Compile-check all ch09 Python files
+        run: |
+          find ch09-mlops-fundamentals -name '*.py' -print0 \
+            | xargs -0 -n1 python -m py_compile
+
+      # Trains and registers the detector to a real MLflow registry, then runs
+      # the validation gate on a passing and a regressing metric.
+      - name: Run the end-to-end smoke test
+        working-directory: ch09-mlops-fundamentals
+        run: python run_smoke.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2g: ch10 KFP pipeline compile
+  # The Kubeflow Pipelines v2 listing compiles to the backend-agnostic IR with no
+  # cluster. ruff, then compile pipeline.py and assert the IR top-level shape
+  # (components/deploymentSpec/root + schemaVersion 2.1.0). Fast and deterministic.
+  # ---------------------------------------------------------------------------
+  ch10-kfp:
+    name: ch10 KFP compile
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch10 KFP dependencies
+        run: pip install -r ch10-pipeline-orchestration/lab1-kfp/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch10-pipeline-orchestration/lab1-kfp/
+
+      # Compile the pipeline to IR, then assert the v2 IR shape (no cluster).
+      - name: Compile and assert IR shape
+        working-directory: ch10-pipeline-orchestration/lab1-kfp
+        run: |
+          python pipeline.py
+          python -c "import yaml; d=yaml.safe_load(open('pipeline.yaml')); \
+            assert {'components','deploymentSpec','root','schemaVersion','sdkVersion'} <= set(d), set(d); \
+            assert d['schemaVersion']=='2.1.0', d['schemaVersion']; print('IR ok')"
+
+  # ---------------------------------------------------------------------------
+  # Job 2h: ch10 Airflow asset DAG parse
+  # The Airflow 3 asset-triggered DAG is validated by a DagBag parse, which
+  # catches every import and syntax error with no scheduler and no db migrate.
+  # ---------------------------------------------------------------------------
+  ch10-airflow:
+    name: ch10 Airflow DAG parse
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch10 Airflow dependencies
+        run: pip install -r ch10-pipeline-orchestration/lab2-airflow/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch10-pipeline-orchestration/lab2-airflow/
+
+      # DagBag parse: both DAGs must register with zero import errors.
+      - name: Parse the DAGs (DagBag, no scheduler)
+        working-directory: ch10-pipeline-orchestration/lab2-airflow
+        env:
+          AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+        run: python parse_check.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2i: ch10 ZenML pipeline run
+  # The orchestrator-agnostic pipeline runs on the default local stack to prove
+  # the same four steps execute. The stack-swap is shown in the chapter as CLI.
+  # The run is made hermetic (no analytics, temp config path).
+  # ---------------------------------------------------------------------------
+  ch10-zenml:
+    name: ch10 ZenML run
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch10 ZenML dependencies
+        run: pip install -r ch10-pipeline-orchestration/lab3-zenml/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch10-pipeline-orchestration/lab3-zenml/
+
+      # Run the pipeline on the local stack; both steps must execute.
+      - name: Run the ZenML pipeline
+        working-directory: ch10-pipeline-orchestration/lab3-zenml
+        env:
+          ZENML_ANALYTICS_OPT_IN: "false"
+          ZENML_CONFIG_PATH: "${{ runner.temp }}/zenml"
+        run: python pipeline.py
+
+  # ---------------------------------------------------------------------------
+  # Job 2j: ch10 DVC caching demo
+  # Copies the lab to a temp dir (dvc init wants its own git repo), then runs
+  # dvc repro twice and asserts the second run skips both stages (the caching
+  # proof). dvc init needs a git repo, hence git init first.
+  # ---------------------------------------------------------------------------
+  ch10-dvc:
+    name: ch10 DVC caching
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch10 DVC dependencies
+        run: pip install -r ch10-pipeline-orchestration/lab4-dvc/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch10-pipeline-orchestration/lab4-dvc/
+
+      # Isolate in a temp dir so dvc init owns its own git repo, then prove the
+      # cache: first repro runs both stages, second skips both.
+      - name: Run dvc repro twice and assert the cache skips
+        run: |
+          work="${{ runner.temp }}/dvc-lab"
+          mkdir -p "$work"
+          cp ch10-pipeline-orchestration/lab4-dvc/prepare.py \
+             ch10-pipeline-orchestration/lab4-dvc/train.py \
+             ch10-pipeline-orchestration/lab4-dvc/dvc.yaml "$work"/
+          cd "$work"
+          git init -q && git config user.email ci@ci && git config user.name ci
+          dvc init -q
+          dvc repro
+          dvc repro 2>&1 | tee out.txt
+          grep -q "didn't change, skipping" out.txt
+
+  # ---------------------------------------------------------------------------
+  # Job 2k: ch11 serving (Lab A serve + Lab D load test, live, headless)
+  # Serves the anomaly-detector through MLServer, which IS KServe's sklearn runtime,
+  # so the exact KServe V2 Open Inference Protocol runs locally with no cluster. The
+  # smoke test asserts the V2 response, then the load harness reports p50/p99. The
+  # KServe manifests (Labs B, C, E) need a cluster/GPU and are lint-only (yaml-lint).
+  # Pinned to Python 3.12: MLServer 1.7.1's uvloop/asyncio stack breaks on 3.14.
+  # ---------------------------------------------------------------------------
+  ch11-serving:
+    name: ch11 serving (MLServer V2 + load test)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch11 serving dependencies
+        run: pip install -r ch11-model-serving/serving/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch11-model-serving/serving/
+
+      # Lab A: train, start MLServer, POST a V2 infer request, assert [1, -1].
+      - name: Serve and assert a V2 inference response
+        working-directory: ch11-model-serving/serving
+        run: python run_smoke.py
+
+      # Lab D: start MLServer, run the load harness, assert it prints a p50/p99 table.
+      - name: Run the load-test harness
+        working-directory: ch11-model-serving/serving
+        run: |
+          python train.py
+          mlserver start . &
+          server=$!
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+              http://localhost:8080/v2/models/anomaly-detector/ready || true)
+            [ "$code" = "200" ] && break
+            sleep 1
+          done
+          python loadtest.py --requests 200 | tee out.txt
+          kill "$server" 2>/dev/null || true
+          test "$(grep -c -E '^[[:space:]]+[0-9]+' out.txt)" -ge 4
+
+  # ---------------------------------------------------------------------------
+  # Job 2l: ch12 ML monitoring and drift (NannyML + Evidently + River)
+  # All three runnable labs resolve and run in ONE Python 3.12 environment.
+  # 3.12 (not 3.14) because NannyML 0.13.1 pins python <3.13, the same kind of
+  # version pin ch11 hit with MLServer. River needs >=3.11, Evidently >=3.10.
+  # run_smoke.py asserts: CBPE estimates a lower ROC AUC on the shifted period
+  # and multivariate drift alerts; Evidently flags drifted columns and exports
+  # Prometheus gauges; River ADWIN detects the change point after the shift;
+  # and every ml_* selector in the 12.7 alert rules and dashboard matches a
+  # series the labs actually export (name AND labels), so a selector that is
+  # valid but matches nothing fails CI instead of shipping as a dead alert.
+  # No server, no GPU, no cluster, no API keys. lab4 (Phoenix) is validation-
+  # only and import-checked, not executed (needs a Phoenix server + LLM key).
+  # The 12.7 alert rule is checked AND unit-tested by promtool against series
+  # carrying the exported label set; the dashboard is validated by a JSON parse.
+  # ---------------------------------------------------------------------------
+  ch12-monitoring:
+    name: ch12 monitoring (NannyML + Evidently + River)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch12 monitoring dependencies
+        run: pip install -r ch12-ml-monitoring-drift/labs/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch12-ml-monitoring-drift/labs/
+
+      # lab4 needs a Phoenix server + an LLM API key, so it is not executed in
+      # CI; compile it to confirm the listing still parses (ch03 pattern).
+      - name: Compile-check the validation-only Phoenix listing
+        run: python -m py_compile ch12-ml-monitoring-drift/labs/lab4_phoenix_genai_eval.py
+
+      # Labs 1-3 end to end: CBPE drop + multivariate alert, Evidently drift +
+      # gauges, ADWIN change point. Asserts each outcome, prints "smoke: ok".
+      - name: Run the monitoring smoke test (labs 1-3)
+        working-directory: ch12-ml-monitoring-drift/labs
+        run: python run_smoke.py
+
+      - name: Install yamllint 1.35.1
+        run: pip install yamllint==1.35.1
+
+      - name: Lint the Prometheus alert rule and its unit tests
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch12-ml-monitoring-drift/alerts/ml-monitoring-rules.yaml \
+            ch12-ml-monitoring-drift/alerts/ml-monitoring-rules.test.yaml
+
+      # Validate the alert rule semantics with promtool, unit-test it against
+      # synthetic series carrying the exact label set the labs export (so a
+      # rule whose selector matches no exported series fails here, not in
+      # production), and validate the Grafana dashboard with a JSON parse.
+      - name: Validate and unit-test alert rules (promtool), dashboard (JSON)
+        run: |
+          PROM_VER=3.12.0
+          curl -sL \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROM_VER}/prometheus-${PROM_VER}.linux-amd64.tar.gz" \
+            -o prom.tar.gz
+          tar xzf prom.tar.gz
+          "prometheus-${PROM_VER}.linux-amd64/promtool" check rules \
+            ch12-ml-monitoring-drift/alerts/ml-monitoring-rules.yaml
+          "prometheus-${PROM_VER}.linux-amd64/promtool" test rules \
+            ch12-ml-monitoring-drift/alerts/ml-monitoring-rules.test.yaml
+          python -c "import json; json.load(open('ch12-ml-monitoring-drift/grafana/ml-monitoring-dashboard.json'))"
+
+  # ---------------------------------------------------------------------------
+  # ch13-llmops: GenAI OTel span + offline eval gate + cost meter, one 3.14 venv.
+  # The three runnable labs need NO LLM API key, NO network, NO collector, NO GPU.
+  # Python 3.14 (not 3.12): opentelemetry 1.42.1 and deepeval 4.0.6 install
+  # cleanly on 3.14; this chapter does not hit the 3.12 pin Ch11/Ch12 needed.
+  # run_smoke.py asserts: Lab 1 emits one GenAI span named "{operation} {model}"
+  # carrying the gen_ai.* attributes (provider, request/response model, token
+  # usage); Lab 2's DeepEval ExactMatchMetric gate scores 1.0 on the good
+  # release and 0.0 on the regressed one (a real gate fails the build there);
+  # Lab 3's cost meter turns the span's token counts into dollars via a price
+  # table, accumulates per-route spend, crosses a $1.00 daily budget, downshifts
+  # the over-budget request to the cheap route, and refuses a request already on
+  # the cheapest route. pytest then runs the gate directly (passing case +
+  # asserted-failure case).
+  # Validation-only and import-checked, NOT executed: the Langfuse OTLP export
+  # in lab1 (needs a collector/Langfuse endpoint), lab2_ragas_online.py (Ragas
+  # RAG metrics need an LLM judge, and ragas==0.4.3 cannot import offline). The
+  # Promptfoo red-team config is YAML-linted only; a live run needs an LLM
+  # provider key. Same honesty split as Ch11 (vLLM) and Ch12 (Phoenix).
+  # ---------------------------------------------------------------------------
+  ch13-llmops:
+    name: ch13 LLMOps (GenAI span + eval gate)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.14"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch13 LLMOps dependencies
+        run: pip install -r ch13-llmops-discipline/labs/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch13-llmops-discipline/labs/
+
+      # Validation-only LLM-key paths: the Langfuse OTLP export lives inside
+      # lab1 (compiled via the smoke import), and lab2_ragas_online.py needs an
+      # LLM judge. Compile the Ragas listing to confirm it still parses (the
+      # ch03/ch12 pattern); it is never executed.
+      - name: Compile-check the validation-only Ragas listing
+        run: python -m py_compile ch13-llmops-discipline/labs/lab2_ragas_online.py
+
+      # Labs 1-3 end to end: GenAI span name + gen_ai.* attributes, the
+      # exact-match eval gate passing the good case / failing the regressed one,
+      # and the cost meter crossing the budget, downshifting, then refusing.
+      - name: Run the LLMOps smoke test (labs 1-3)
+        working-directory: ch13-llmops-discipline/labs
+        env:
+          OTEL_SEMCONV_STABILITY_OPT_IN: gen_ai_latest_experimental
+        run: python run_smoke.py
+
+      # The eval gate as a real pytest gate: the good release passes and the
+      # regressed release trips assert_test (asserted with pytest.raises).
+      - name: Run the eval gate (pytest)
+        working-directory: ch13-llmops-discipline/labs
+        run: python -m pytest lab2_eval_gate.py -q
+
+      - name: Install yamllint 1.35.1
+        run: pip install yamllint==1.35.1
+
+      # The Promptfoo jailbreak/red-team config is structurally validated only;
+      # a live `promptfoo eval` sends each probe to an LLM provider (API key +
+      # egress), so CI lints the YAML and leaves the live run local-only.
+      - name: Lint the Promptfoo red-team config
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch13-llmops-discipline/redteam/promptfooconfig.yaml
+
+  # ---------------------------------------------------------------------------
+  # ch14-iacgen: the iacgen running example. A bounded generate-scan-repair loop
+  # with REAL scanners and a REAL OPA gate over RECORDED Terraform fixtures.
+  #
+  # Honest split: generate()/repair() are recorded fixtures (no LLM API key, no
+  # network for generation), exactly as Ch11/Ch12/Ch13 stub the model. The
+  # scanners (Checkov 3.3.1 + Trivy 0.71.1, run in parallel) and the OPA gate
+  # (Conftest 0.68.2) run for real, with the SAME pinned versions and install
+  # method as the iac-clean job below.
+  #
+  # Trivy needs its misconfig checks bundle. The first `trivy config` pulls it
+  # from ghcr.io; we warm the cache once here, then every scan in the loop runs
+  # with --skip-check-update so the loop is offline and deterministic.
+  #
+  # The smoke test asserts: the loop STARTS with HIGH/CRITICAL findings,
+  # CONVERGES to 0 within the 3-pass budget, the OPA gate PASSES on the
+  # converged module, the emitted SARIF 2.1.0 is well-formed, and (Listing 14-3)
+  # an UNCAPPED loop's blocking count RISES while the capped loop stops at the
+  # rail. Listing 14-3 is a DETERMINISTIC ILLUSTRATION of Shukla et al.'s
+  # qualitative finding, NOT a reproduction of their +37.6% figure (that needs
+  # a live LLM).
+  # ---------------------------------------------------------------------------
+  ch14-iacgen:
+    name: ch14 iacgen (loop + OPA gate + SARIF)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ch14-llm-devops-tools/iacgen
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.14"
+
+      # Same pins and install method as iac-clean: Checkov via pip, Trivy via
+      # the upstream install script, Conftest from the GitHub release tarball.
+      - name: Install Checkov 3.3.1
+        run: pip install checkov==3.3.1
+
+      - name: Install pytest 8.3.4
+        run: pip install pytest==8.3.4
+
+      - name: Install Trivy 0.71.1
+        run: |
+          curl -sfL \
+            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.71.1
+
+      - name: Install Conftest 0.68.2
+        run: |
+          curl -sSL \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.68.2/conftest_0.68.2_Linux_x86_64.tar.gz \
+            | tar -xz -C /usr/local/bin conftest
+
+      # Warm the Trivy misconfig checks bundle once so the loop's per-pass scans
+      # can run with --skip-check-update (offline, deterministic).
+      - name: Warm the Trivy checks bundle
+        run: trivy config fixtures/rev1_insecure --severity HIGH,CRITICAL || true
+
+      # The recorded insecure module MUST still fail the scanners. If this passes
+      # (exit 0), the teaching defect was accidentally removed.
+      - name: Assert the recorded insecure module fails Trivy (teaching artifact)
+        run: |
+          if trivy config fixtures/rev1_insecure --severity HIGH,CRITICAL \
+              --exit-code 1 --skip-check-update; then
+            echo "ERROR: rev1_insecure unexpectedly passed Trivy"; exit 1
+          fi
+
+      # The hardened module MUST pass both scanners cleanly (same gate as iac-clean).
+      - name: Assert the hardened module passes Checkov and Trivy (GATING)
+        run: |
+          checkov --directory fixtures/rev2_hardened --quiet --compact
+          trivy config fixtures/rev2_hardened --severity HIGH,CRITICAL \
+            --exit-code 1 --skip-check-update
+
+      # End-to-end: the bounded loop converges, the OPA gate passes, the SARIF
+      # validates, and the degradation illustration rises uncapped / stops capped.
+      - name: Run the iacgen smoke test (bounded loop + gate + SARIF)
+        env:
+          PYTHONPATH: ${{ github.workspace }}/ch14-llm-devops-tools/iacgen
+        run: python run_smoke.py
+
+      - name: Run the iacgen CI assertions (pytest)
+        env:
+          PYTHONPATH: ${{ github.workspace }}/ch14-llm-devops-tools/iacgen
+        run: python -m pytest tests/ -q
+
+      # The OPA/Conftest gate via the CLI, the way the chapter shows it: the
+      # recorded insecure plan is DENIED (shell negation asserts exit 1), the
+      # hardened plan PASSES.
+      - name: "OPA gate: insecure plan must be denied"
+        run: '! conftest test fixtures/rev1_insecure/plan.json --policy policy'
+
+      - name: "OPA gate: hardened plan must pass"
+        run: conftest test fixtures/rev2_hardened/plan.json --policy policy
+
+      # The CLI as a usable CI gate: converge -> emit SARIF -> exit 0.
+      - name: Run the iacgen CLI and emit SARIF
+        env:
+          PYTHONPATH: ${{ github.workspace }}/ch14-llm-devops-tools/iacgen
+        run: |
+          python -m iacgen "a secure S3 bucket Terraform module" \
+            --max-passes 3 --sarif iacgen.sarif
+          python -c "import json,sys; d=json.load(open('iacgen.sarif')); \
+            assert d['version']=='2.1.0'; print('SARIF 2.1.0 OK,', \
+            sum(len(r['results']) for r in d['runs']), 'result(s)')"
+
+      # Upload the SARIF to GitHub code scanning (the production destination).
+      - name: Upload SARIF to GitHub code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ch14-llm-devops-tools/iacgen/iacgen.sarif
+          category: ch14-iacgen
+
+  # ---------------------------------------------------------------------------
+  # Job 3: IaC security scan, clean module (GATING)
+  # ch04/clean-module is the hardened, hand-written reference module that must
+  # pass the HIGH/CRITICAL gate. Any regression here means a listing changed in
+  # a way that introduces a real security finding.
+  #
+  # Checkov: gate on any failed check (not --hard-fail-on HIGH) because many
+  # community checks carry no severity and slip past a severity filter.
+  # Trivy: gate on HIGH and CRITICAL with --exit-code 1.
+  # ---------------------------------------------------------------------------
+  iac-clean:
+    name: IaC scan, clean-module (must pass)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Checkov 3.3.1
+        run: pip install checkov==3.3.1
+
+      - name: Install Trivy 0.71.1
+        run: |
+          curl -sfL \
+            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.71.1
+
+      # Exit code: 0 = pass, non-zero = build failure.
+      - name: Checkov on clean-module (GATING)
+        run: |
+          checkov \
+            --directory ch04-iac-ai-era/clean-module \
+            --quiet --compact
+
+      # Exit code: 0 = no HIGH/CRITICAL, 1 = findings present.
+      - name: Trivy config scan on clean-module (GATING)
+        run: |
+          trivy config ch04-iac-ai-era/clean-module \
+            --severity HIGH,CRITICAL \
+            --exit-code 1
+
+  # ---------------------------------------------------------------------------
+  # Job 4: IaC security scan, generated module (NON-GATING, expected to fail)
+  # ch04/generated-module is the INTENTIONALLY INSECURE teaching artifact.
+  # It must produce findings. If scanners return 0, the defects were accidentally
+  # fixed and the chapter's teaching example no longer demonstrates the problem.
+  # This job runs but does NOT gate the build (continue-on-error: true).
+  # The step names and comments make the intent obvious in the Actions UI.
+  # ---------------------------------------------------------------------------
+  iac-insecure:
+    name: IaC scan, generated-module (NON-GATING, must find issues)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Checkov 3.3.1
+        run: pip install checkov==3.3.1
+
+      - name: Install Trivy 0.71.1
+        run: |
+          curl -sfL \
+            https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.71.1
+
+      # NON-GATING: this INTENTIONALLY INSECURE file must fail scanners.
+      # It is the defective teaching example that the chapter's scan-and-gate
+      # pipeline is designed to block. Do not add --hard-fail-on or remove
+      # the continue-on-error flag. If this step starts passing (exit 0),
+      # investigate: the defects may have been unintentionally removed.
+      - name: Checkov on generated-module (NON-GATING, expected failures)
+        continue-on-error: true
+        run: |
+          checkov \
+            --directory ch04-iac-ai-era/generated-module \
+            --quiet --compact
+
+      - name: Trivy config scan on generated-module (NON-GATING, expected failures)
+        continue-on-error: true
+        run: |
+          trivy config ch04-iac-ai-era/generated-module \
+            --severity HIGH,CRITICAL \
+            --exit-code 1
+
+  # ---------------------------------------------------------------------------
+  # Job 5: OPA/Conftest policy tests
+  # Runs the s3_encryption.rego policy against the three fixture plan JSONs:
+  #   pass_clean_module.json       : two buckets, both have SSE configs -> pass
+  #   pass_differently_named_sse.json : SSE config label differs from bucket label -> pass
+  #   deny_no_sse.json             : one bucket, no SSE config -> deny
+  #
+  # Each fixture is trimmed from real `terraform show -json` output (Terraform
+  # 1.5.7, AWS provider 6.54.0): only the S3 bucket and SSE entries in
+  # resource_changes and configuration are kept, values unmodified.
+  #
+  # For the deny fixture, the policy must produce a FAIL (exit 1). The step
+  # inverts the exit code with a shell negation so a Conftest failure becomes
+  # a CI success and a Conftest pass would be a CI failure. This asserts the
+  # policy correctly catches the insecure case.
+  # ---------------------------------------------------------------------------
+  iac-policy:
+    name: OPA/Conftest policy tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Install Conftest 0.68.2
+        run: |
+          curl -sSL \
+            https://github.com/open-policy-agent/conftest/releases/download/v0.68.2/conftest_0.68.2_Linux_x86_64.tar.gz \
+            | tar -xz -C /usr/local/bin conftest
+
+      - name: "Policy test: pass_clean_module (must pass)"
+        working-directory: ch04-iac-ai-era
+        run: |
+          conftest test policy/testdata/pass_clean_module.json --policy policy
+
+      - name: "Policy test: pass_differently_named_sse (must pass)"
+        working-directory: ch04-iac-ai-era
+        run: |
+          conftest test policy/testdata/pass_differently_named_sse.json --policy policy
+
+      # The deny fixture has no SSE config, so the policy must fire (exit 1).
+      # The shell negation (!) asserts that Conftest exits non-zero.
+      # If this step fails, the policy has regressed and no longer blocks
+      # the insecure case.
+      - name: "Policy test: deny_no_sse (must deny, policy regression check)"
+        working-directory: ch04-iac-ai-era
+        run: |
+          ! conftest test policy/testdata/deny_no_sse.json --policy policy
+
+  # ---------------------------------------------------------------------------
+  # ch15-rag: the Incident Copilot. pgvector ingestion + hybrid retrieval
+  # (dense + Postgres tsvector BM25-style + RRF) + a LOCAL reranker (FlashRank,
+  # ONNX, CPU) + a contextual-retrieval A/B + a DETERMINISTIC eval gate, all
+  # against a real Postgres+pgvector service container. NO LLM API key, NO GPU.
+  #
+  # Honest split (same as Ch11/12/13/14): the retrieval/rerank/measurement SHAPE
+  # runs for real; the LLM ANSWER GENERATION, the live Ragas faithfulness judge,
+  # the TruLens feedback judges, and the LangGraph create_agent loop are
+  # validation-only (compile-checked, never executed). ragas==0.4.3 cannot even
+  # be imported against langchain 1.x, so eval_ragas.py is py_compile-checked.
+  # Python 3.12 (the torch/onnx heavy-ML interpreter, as Ch11/Ch12).
+  # ---------------------------------------------------------------------------
+  ch15-rag:
+    name: ch15 RAG (pgvector hybrid + rerank + eval gate)
+    runs-on: ubuntu-22.04
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17        # bundles pgvector extension 0.8.3
+        env:
+          POSTGRES_USER: copilot
+          POSTGRES_PASSWORD: copilot
+          POSTGRES_DB: incidentcopilot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U copilot -d incidentcopilot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: copilot
+      PGPASSWORD: copilot
+      PGDATABASE: incidentcopilot
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      TOKENIZERS_PARALLELISM: "false"
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      # Cache the embedding + reranker model downloads so the job is fast after
+      # the first run (MiniLM ~90MB to HF cache; FlashRank TinyBERT ~3.3MB).
+      - name: Cache models
+        uses: actions/cache@v4.1.2
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/torch
+            /tmp/.flashrank
+          key: ch15-models-minilm-tinybert-v1
+
+      - name: Install ch15 dependencies
+        run: pip install -r ch15-rag-operations/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch15-rag-operations/
+
+      # Validation-only LLM-judge / agent paths: confirm they still parse. ragas
+      # is NOT installed and cannot import, so we ONLY py_compile (Ch03/Ch13 pattern).
+      - name: Compile-check the validation-only listings
+        run: |
+          python -m py_compile ch15-rag-operations/incidentcopilot/eval_ragas.py
+          python -m py_compile ch15-rag-operations/incidentcopilot/agent.py
+
+      # End to end against the pgvector service container: schema + ingest, dense
+      # vs hybrid (hybrid beats dense on the identifier query), rerank MRR lift,
+      # contextual A/B, deterministic eval gate. Prints "smoke: ok".
+      - name: Run the RAG smoke test (labs 1-3 + deterministic gate)
+        working-directory: ch15-rag-operations
+        run: python run_smoke.py
+
+      - name: Run the pytest suite (retrieval, rerank, contextual, eval gate)
+        working-directory: ch15-rag-operations
+        run: python -m pytest tests/ -q
+
+  # ---------------------------------------------------------------------------
+  # ch16-guardrails: the layered guardrail proxy + attack harness. A FastAPI
+  # reverse proxy runs INPUT defenses (injection heuristic + regex PII scrub), an
+  # architectural CONTAINMENT check that breaks the lethal trifecta, a STUBBED LLM,
+  # then OUTPUT defenses (rules-based hazard check + PII redaction). The attack
+  # harness proves the thesis: input blocks the direct jailbreak, output filtering
+  # MISSES indirect injection, and containment stops the trifecta exfiltration.
+  # Plus a stdlib pickle-danger demo (code executes on load -> prefer safetensors).
+  #
+  # Honest split (same as Ch11/13/15): the deterministic pipeline runs for real;
+  # Prompt Guard 2 (gated), Llama Guard 4 (12B/GPU), Presidio NER, Guardrails AI,
+  # NeMo Guardrails, and the managed cloud guardrails are validation-only
+  # (py_compile-checked). Python 3.12 so the optional Presidio/modelscan jobs,
+  # which cap below 3.14/3.13, can share one interpreter.
+  # ---------------------------------------------------------------------------
+  ch16-guardrails:
+    name: ch16 guardrails (proxy + attack harness)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch16 dependencies
+        run: pip install -r ch16-securing-governing-ai/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch16-securing-governing-ai/
+
+      # Validation-only production guardrails: confirm they still parse. They are
+      # never executed in CI (gated download / 12B GPU / LLM key).
+      - name: Compile-check the validation-only labs
+        run: |
+          python -m py_compile ch16-securing-governing-ai/guardrails/lab_promptguard.py
+          python -m py_compile ch16-securing-governing-ai/guardrails/lab_llamaguard.py
+          python -m py_compile ch16-securing-governing-ai/guardrails/lab_presidio.py
+
+      # The deterministic proxy + attack harness + pickle demo. Prints "smoke: ok".
+      - name: Run the guardrail smoke test
+        working-directory: ch16-securing-governing-ai
+        run: python run_smoke.py
+
+      - name: Run the attack + filter test suite
+        working-directory: ch16-securing-governing-ai
+        run: python -m pytest tests/ -q
+
+  # ---------------------------------------------------------------------------
+  # ch17-platform: the AIOSP capstone. Proves the convergence thesis (three
+  # disciplines on ONE substrate) without a cluster, an LLM key, or a GPU.
+  #
+  # What runs: yamllint over the real GitOps manifests (the three KServe
+  # InferenceServices, the Argo CD Applications + app-of-apps root, the OTel
+  # Collector); ruff; then run_smoke.py, which (1) runs the convergence check
+  # over those manifests and asserts the shared serving API, the shared Argo
+  # delivery loop, and the shared OTLP endpoint, with predictive AND generative
+  # model formats present; and (2) emits the unified trace and asserts the infra
+  # span and the gen_ai child span share one trace, carrying token usage and a
+  # computed cost. pytest then runs both, INCLUDING a negative test that the
+  # convergence check FAILS when a workload diverges (so it is a real assertion).
+  #
+  # Validation-only, NOT executed: setup.sh (stands AIOSP up on a real kind
+  # cluster; the Incident Copilot needs a GPU node), the live KServe Hugging
+  # Face/vLLM serving, and the Backstage portal. Same honesty split as Ch11
+  # (vLLM), Ch13 (LLM), and Ch16 (production guardrails): CI proves the part the
+  # thesis rests on (the substrates are shared), the live deploy stays local.
+  # Python 3.12 with the same OpenTelemetry pins as Ch13.
+  # ---------------------------------------------------------------------------
+  ch17-platform:
+    name: ch17 Unified Platform (convergence + unified trace)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch17 dependencies
+        run: pip install -r ch17-unified-ops-platform/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch17-unified-ops-platform/
+
+      - name: Install yamllint 1.35.1
+        run: pip install yamllint==1.35.1
+
+      # The GitOps manifests the convergence check reads and setup.sh applies.
+      - name: Lint the platform manifests
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable, comments: {min-spaces-from-content: 1}}}' \
+            ch17-unified-ops-platform/platform/
+
+      # Convergence check (shared substrates) + unified trace (infra + gen_ai in
+      # one trace). Prints "smoke: ok".
+      - name: Run the platform smoke test
+        working-directory: ch17-unified-ops-platform
+        env:
+          OTEL_SEMCONV_STABILITY_OPT_IN: gen_ai_latest_experimental
+          PYTHONPATH: .
+        run: python run_smoke.py
+
+      # Includes the negative test: the convergence check must FAIL on a
+      # divergent workload, so it is a real assertion, not a rubber stamp.
+      - name: Run the convergence + tracing test suite
+        working-directory: ch17-unified-ops-platform
+        env:
+          OTEL_SEMCONV_STABILITY_OPT_IN: gen_ai_latest_experimental
+          PYTHONPATH: .
+        run: python -m pytest tests/ -q
+
+  # ---------------------------------------------------------------------------
+  # ch18-future: the book's final running example, the agent control plane. An
+  # L2 remediation agent opens a diagnosis PR and a remediation PR and CANNOT
+  # actuate; a human approval gate and a GitOps reconcile are the only path to
+  # the cluster; a guardian (the red button) can pause every agent at once.
+  #
+  # Pure standard library (dataclasses, enum), so no LLM, no cluster, no network,
+  # no GPU: the lab proves the assist-and-approve CONTROL boundary, not a model.
+  # run_smoke.py asserts the agent proposes two PRs and changes nothing, that it
+  # cannot approve its own remediation (separation of duties), that only a
+  # human-approved change reconciles (r42 -> r41), and that the red button halts
+  # the agent. pytest then exercises the same boundary plus the L2 cap (the agent
+  # exposes no actuate/reconcile method) and the guardian engage/disengage.
+  #
+  # Validation-only (not run): a real LLM agent and the OpenTelemetry agent
+  # semantic conventions (still Development, attribute names may change). Same
+  # honesty split as the rest of Part IV and the Ch17 capstone.
+  # ---------------------------------------------------------------------------
+  ch18-future:
+    name: ch18 Future (agent control plane)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Install ch18 dependencies
+        run: pip install -r ch18-future-intelligent-ops/requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check ch18-future-intelligent-ops/
+
+      # The assist-and-approve boundary: propose-only, no self-approval, only
+      # human-approved changes reconcile, red button halts the agent.
+      - name: Run the agent control-plane smoke test
+        working-directory: ch18-future-intelligent-ops
+        env:
+          PYTHONPATH: .
+        run: python run_smoke.py
+
+      - name: Run the agent control-plane test suite
+        working-directory: ch18-future-intelligent-ops
+        env:
+          PYTHONPATH: .
+        run: python -m pytest tests/ -q

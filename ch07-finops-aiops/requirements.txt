@@ -1,0 +1,5 @@
+# Chapter 7: FinOps cost-intelligence pipeline. Pinned, CI-tested versions.
+numpy==2.4.6
+pandas==2.3.3
+scikit-learn==1.9.0
+statsmodels==0.14.6

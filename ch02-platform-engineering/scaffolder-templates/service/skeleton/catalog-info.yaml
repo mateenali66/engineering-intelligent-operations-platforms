@@ -1,0 +1,18 @@
+# Backstage scaffolder skeleton file (templated, not standalone YAML).
+# The fetch:template step renders the ${{ values.* }} substitutions.
+# Rendered output has the same shape as the hand-written catalog-info.yaml
+# printed as Listing 2-1.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.name }} service scaffolded from the python-service-otel golden path
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    argocd/app-name: ${{ values.name }}
+    backstage.io/kubernetes-label-selector: 'app=${{ values.name }}'
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: ${{ values.system }}

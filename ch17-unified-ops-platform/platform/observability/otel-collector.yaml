@@ -1,0 +1,95 @@
+# The shared observability substrate: one gateway OpenTelemetry Collector that
+# every workload exports to. The Service below is the canonical OTLP endpoint
+# (http://otel-collector.observability:4318); the convergence check derives that
+# address from this Service, confirms the Service selector matches the Deployment
+# that actually runs the Collector, and asserts every InferenceService exports to
+# the same one. The ConfigMap shows the pipeline: a single OTLP receiver takes
+# infra spans AND gen_ai spans on the same port, so token and cost telemetry lands
+# in the same trace store as Kubernetes and HTTP telemetry. One pane of glass.
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: observability
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+---
+# The Collector workload itself: without this Deployment the Service above selects
+# zero pods and no collector runs. It mounts the ConfigMap and listens on the two
+# OTLP ports the Service targets. Minimal gateway, same contrib image and shape as
+# the Chapter 3 collector.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: observability
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.116.0
+          args: ["--config=/conf/config.yaml"]
+          ports:
+            - name: otlp-http
+              containerPort: 4318
+            - name: otlp-grpc
+              containerPort: 4317
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: observability
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+          grpc:
+            endpoint: 0.0.0.0:4317
+    processors:
+      batch: {}
+    exporters:
+      # Infra traces to Tempo, gen_ai spans ride the same pipeline: there is no
+      # separate LLM trace backend, only more attributes on the same spans.
+      otlphttp/tempo:
+        endpoint: http://tempo.observability:4318
+      prometheus:
+        endpoint: 0.0.0.0:8889
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlphttp/tempo]
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [prometheus]

@@ -1,0 +1,6 @@
+# Chapter 3 Python dependencies, version-pinned to match the printed listings.
+pandas==2.2.3
+pyarrow==17.0.0
+s3fs==2024.10.0
+drain3==0.9.11
+opentelemetry-proto==1.27.0

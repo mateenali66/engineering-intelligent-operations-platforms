@@ -1,0 +1,24 @@
+# A Chaos Mesh network-delay experiment (the second fault type in the lab).
+# Adds 100ms +/- 50ms latency to the payment service's outbound traffic for 30s.
+# Expected telemetry signature: a rise in request latency percentiles with little
+# error increase, until latency crosses client timeouts.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: payment-network-delay
+  namespace: chaos-testing
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - default
+    labelSelectors:
+      # the OpenTelemetry Demo labels pods by component, not a plain "app"
+      app.kubernetes.io/component: payment
+  delay:
+    latency: "100ms"        # base latency added
+    correlation: "25"       # correlation percentage, 0 to 100
+    jitter: "50ms"          # random variation around the latency
+  direction: to             # to | from | both
+  duration: "30s"

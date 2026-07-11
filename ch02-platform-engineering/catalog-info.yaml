@@ -1,0 +1,23 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payments-api
+  description: Payment processing service for the SaaS platform
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    argocd/app-name: payments-api
+    backstage.io/kubernetes-label-selector: 'app=payments-api'
+  tags:
+    - python
+    - tier-1
+  links:
+    - url: https://grafana.example.com/d/payments-api
+      title: Service Dashboard
+      icon: dashboard
+spec:
+  type: service
+  lifecycle: production
+  owner: team-payments
+  system: billing
+  providesApis:
+    - payments-api

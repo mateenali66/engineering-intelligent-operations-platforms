@@ -1,0 +1,5 @@
+# Chapter 18: The Future of Intelligent Operations. Pinned, CI-tested versions.
+# The agent control plane is pure standard library (dataclasses, enum), so the
+# only dependency is the test runner. No LLM, no cluster, no network, no GPU: the
+# point of the lab is the assist-and-approve CONTROL boundary, not a model.
+pytest==8.4.2

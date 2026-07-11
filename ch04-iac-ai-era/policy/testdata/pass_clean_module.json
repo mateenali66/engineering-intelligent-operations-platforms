@@ -1,0 +1,329 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.7",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.telemetry",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "telemetry",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "bucket": "telemetry-lake",
+          "force_destroy": false,
+          "region": "us-east-1",
+          "tags": null,
+          "timeouts": null
+        },
+        "after_unknown": {
+          "acceleration_status": true,
+          "acl": true,
+          "arn": true,
+          "bucket_domain_name": true,
+          "bucket_namespace": true,
+          "bucket_prefix": true,
+          "bucket_region": true,
+          "bucket_regional_domain_name": true,
+          "cors_rule": true,
+          "grant": true,
+          "hosted_zone_id": true,
+          "id": true,
+          "lifecycle_rule": true,
+          "logging": true,
+          "object_lock_configuration": true,
+          "object_lock_enabled": true,
+          "policy": true,
+          "replication_configuration": true,
+          "request_payer": true,
+          "server_side_encryption_configuration": true,
+          "tags_all": true,
+          "versioning": true,
+          "website": true,
+          "website_domain": true,
+          "website_endpoint": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "cors_rule": [],
+          "grant": [],
+          "lifecycle_rule": [],
+          "logging": [],
+          "object_lock_configuration": [],
+          "replication_configuration": [],
+          "server_side_encryption_configuration": [],
+          "tags_all": {},
+          "versioning": [],
+          "website": []
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket.telemetry_logs",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "telemetry_logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "bucket": "telemetry-lake-logs",
+          "force_destroy": false,
+          "region": "us-east-1",
+          "tags": null,
+          "timeouts": null
+        },
+        "after_unknown": {
+          "acceleration_status": true,
+          "acl": true,
+          "arn": true,
+          "bucket_domain_name": true,
+          "bucket_namespace": true,
+          "bucket_prefix": true,
+          "bucket_region": true,
+          "bucket_regional_domain_name": true,
+          "cors_rule": true,
+          "grant": true,
+          "hosted_zone_id": true,
+          "id": true,
+          "lifecycle_rule": true,
+          "logging": true,
+          "object_lock_configuration": true,
+          "object_lock_enabled": true,
+          "policy": true,
+          "replication_configuration": true,
+          "request_payer": true,
+          "server_side_encryption_configuration": true,
+          "tags_all": true,
+          "versioning": true,
+          "website": true,
+          "website_domain": true,
+          "website_endpoint": true
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "cors_rule": [],
+          "grant": [],
+          "lifecycle_rule": [],
+          "logging": [],
+          "object_lock_configuration": [],
+          "replication_configuration": [],
+          "server_side_encryption_configuration": [],
+          "tags_all": {},
+          "versioning": [],
+          "website": []
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket_server_side_encryption_configuration.telemetry",
+      "mode": "managed",
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "name": "telemetry",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "expected_bucket_owner": null,
+          "region": "us-east-1",
+          "rule": [
+            {
+              "apply_server_side_encryption_by_default": [
+                {
+                  "sse_algorithm": "aws:kms"
+                }
+              ],
+              "bucket_key_enabled": true
+            }
+          ]
+        },
+        "after_unknown": {
+          "bucket": true,
+          "id": true,
+          "rule": [
+            {
+              "apply_server_side_encryption_by_default": [
+                {
+                  "kms_master_key_id": true
+                }
+              ],
+              "blocked_encryption_types": true
+            }
+          ]
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "rule": [
+            {
+              "apply_server_side_encryption_by_default": [
+                {}
+              ],
+              "blocked_encryption_types": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket_server_side_encryption_configuration.telemetry_logs",
+      "mode": "managed",
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "name": "telemetry_logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "expected_bucket_owner": null,
+          "region": "us-east-1",
+          "rule": [
+            {
+              "apply_server_side_encryption_by_default": [
+                {
+                  "sse_algorithm": "AES256"
+                }
+              ]
+            }
+          ]
+        },
+        "after_unknown": {
+          "bucket": true,
+          "id": true,
+          "rule": [
+            {
+              "apply_server_side_encryption_by_default": [
+                {
+                  "kms_master_key_id": true
+                }
+              ],
+              "blocked_encryption_types": true,
+              "bucket_key_enabled": true
+            }
+          ]
+        },
+        "before_sensitive": false,
+        "after_sensitive": {
+          "rule": [
+            {
+              "apply_server_side_encryption_by_default": [
+                {}
+              ],
+              "blocked_encryption_types": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_s3_bucket.telemetry",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "telemetry",
+          "provider_config_key": "aws",
+          "expressions": {
+            "bucket": {
+              "references": [
+                "var.name"
+              ]
+            }
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_s3_bucket.telemetry_logs",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "telemetry_logs",
+          "provider_config_key": "aws",
+          "expressions": {
+            "bucket": {
+              "references": [
+                "var.name"
+              ]
+            }
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_s3_bucket_server_side_encryption_configuration.telemetry",
+          "mode": "managed",
+          "type": "aws_s3_bucket_server_side_encryption_configuration",
+          "name": "telemetry",
+          "provider_config_key": "aws",
+          "expressions": {
+            "bucket": {
+              "references": [
+                "aws_s3_bucket.telemetry.id",
+                "aws_s3_bucket.telemetry"
+              ]
+            },
+            "rule": [
+              {
+                "apply_server_side_encryption_by_default": [
+                  {
+                    "kms_master_key_id": {
+                      "references": [
+                        "aws_kms_key.telemetry.arn",
+                        "aws_kms_key.telemetry"
+                      ]
+                    },
+                    "sse_algorithm": {
+                      "constant_value": "aws:kms"
+                    }
+                  }
+                ],
+                "bucket_key_enabled": {
+                  "constant_value": true
+                }
+              }
+            ]
+          },
+          "schema_version": 0
+        },
+        {
+          "address": "aws_s3_bucket_server_side_encryption_configuration.telemetry_logs",
+          "mode": "managed",
+          "type": "aws_s3_bucket_server_side_encryption_configuration",
+          "name": "telemetry_logs",
+          "provider_config_key": "aws",
+          "expressions": {
+            "bucket": {
+              "references": [
+                "aws_s3_bucket.telemetry_logs.id",
+                "aws_s3_bucket.telemetry_logs"
+              ]
+            },
+            "rule": [
+              {
+                "apply_server_side_encryption_by_default": [
+                  {
+                    "sse_algorithm": {
+                      "constant_value": "AES256"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "schema_version": 0
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# Chapter 14 iacgen: Python dependencies.
+#
+# Checkov is the only Python dependency. Trivy and Conftest are standalone
+# binaries installed out of band (see README and the ch14-iacgen CI job); they
+# are NOT pip packages.
+#
+# Pinned to the Chapter 4 versions so the security gate is reproducible. An
+# unpinned scanner that updates its rule set overnight changes the build's
+# behavior with no code change.
+checkov==3.3.1
+
+# Test runner for the CI assertions (labs are also runnable as plain scripts).
+pytest==8.3.4

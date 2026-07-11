@@ -1,0 +1,8 @@
+# Chapter 8: AI-driven chaos engineering. Pinned, CI-tested versions.
+# Chaos Mesh 2.8.2 and LitmusChaos 3.x are cluster tools, not pip packages;
+# the manifests in experiments/ target chaos-mesh.org/v1alpha1.
+numpy==2.4.6
+pandas==2.3.3
+pyarrow==24.0.0
+scikit-learn==1.9.0
+PyYAML==6.0.2

@@ -1,0 +1,29 @@
+# A bounded remediation runbook: restart one deployment.
+# Enqueued by the decision step only for safe-tier actions.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: restart-deployment
+  namespace: remediation
+spec:
+  serviceAccountName: remediation-runner
+  entrypoint: restart
+  arguments:
+    parameters:
+      - name: deployment
+      - name: namespace
+  templates:
+    - name: restart
+      inputs:
+        parameters:
+          - name: deployment
+          - name: namespace
+      container:
+        image: registry.k8s.io/kubectl:v1.31.0
+        command: [kubectl]
+        args:
+          - rollout
+          - restart
+          - "deployment/{{inputs.parameters.deployment}}"
+          - -n
+          - "{{inputs.parameters.namespace}}"

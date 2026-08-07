@@ -767,6 +767,12 @@ jobs:
   ch14-iacgen:
     name: ch14 iacgen (loop + OPA gate + SARIF)
     runs-on: ubuntu-22.04
+    # Code scanning needs security-events: write to accept the SARIF. The default
+    # GITHUB_TOKEN is read-only, which is why the upload returned "Resource not
+    # accessible by integration."
+    permissions:
+      contents: read
+      security-events: write
     defaults:
       run:
         working-directory: ch14-llm-devops-tools/iacgen
@@ -852,12 +858,23 @@ jobs:
             sum(len(r['results']) for r in d['runs']), 'result(s)')"
 
       # Upload the SARIF to GitHub code scanning (the production destination).
+      # Code scanning is free on public repos; on private repos it needs GitHub
+      # Advanced Security. This repo is private until Apress migrates it, so we
+      # only upload when public and always keep the SARIF as a build artifact.
       - name: Upload SARIF to GitHub code scanning
-        if: always()
+        if: ${{ !github.event.repository.private }}
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ch14-llm-devops-tools/iacgen/iacgen.sarif
           category: ch14-iacgen
+
+      - name: Archive the SARIF as a build artifact
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: ch14-iacgen-sarif
+          path: ch14-llm-devops-tools/iacgen/iacgen.sarif
+          if-no-files-found: error
 
   # ---------------------------------------------------------------------------
   # Job 3: IaC security scan, clean module (GATING)
@@ -1052,7 +1069,7 @@ jobs:
       # Cache the embedding + reranker model downloads so the job is fast after
       # the first run (MiniLM ~90MB to HF cache; FlashRank TinyBERT ~3.3MB).
       - name: Cache models
-        uses: actions/cache@v4.1.2
+        uses: actions/cache@v4.2.4
         with:
           path: |
             ~/.cache/huggingface

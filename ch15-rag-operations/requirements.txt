@@ -15,7 +15,7 @@ pgvector==0.4.2                 # the Python client adapter (pgvector.psycopg.re
 # --- Local embeddings (CI default; production is text-embedding-3-large) ---------
 sentence-transformers==5.6.0    # pulls torch + transformers (CPU); model all-MiniLM-L6-v2
 
-# --- Local reranker (CI default; production is Cohere Rerank 3.5 / bge-reranker) -
+# --- Local reranker (CI default; production is Cohere Rerank v4.0 / bge-reranker) -
 flashrank==0.2.10               # pure-pip ONNX cross-encoder; onnxruntime CPU
 
 # --- Tests -----------------------------------------------------------------------

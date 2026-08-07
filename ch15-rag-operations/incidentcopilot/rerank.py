@@ -3,7 +3,7 @@
 CI default is FlashRank's smallest cross-encoder (ms-marco-TinyBERT-L-2-v2, a
 ~3.3 MB ONNX model, CPU). It re-scores the candidates by true query-document
 relevance, which a first-stage retriever optimized for recall cannot do. The
-production options are Cohere Rerank 3.5 (managed API) and bge-reranker (local,
+production options are Cohere Rerank v4.0 (managed API) and bge-reranker (local,
 heavier), shown as shapes only.
 """
 

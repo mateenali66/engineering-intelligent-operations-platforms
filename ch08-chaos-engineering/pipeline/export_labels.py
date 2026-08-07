@@ -9,6 +9,8 @@ labeled training and evaluation data. Every experiment makes the detector sharpe
 
 from __future__ import annotations
 
+import os
+
 
 def label_windows(df, fault):
     """Attach label=1 to the injected fault windows, 0 elsewhere, then emit
@@ -26,6 +28,7 @@ def label_windows(df, fault):
 def export_training_data(df, fault, path):
     """Write the labeled feature table as parquet for the Chapter 6 detector."""
     labeled = label_windows(df, fault)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     labeled.to_parquet(path, index=False)
     return labeled
 

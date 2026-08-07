@@ -8,6 +8,8 @@ runs, and the business case produces a finite payback.
 
 from __future__ import annotations
 
+import os
+
 from pipeline.business import SavingsCase, business_case, unit_economics
 from pipeline.cost_anomaly import detect_cost_anomalies
 from pipeline.forecast import forecast_spend, right_size
@@ -16,6 +18,7 @@ from pipeline.make_billing import make_billing
 
 
 def main():
+    os.makedirs("data", exist_ok=True)
     make_billing().to_csv("data/billing_focus.csv", index=False)
     daily = load_daily_spend("data/billing_focus.csv")
     print(f"daily spend: {len(daily)} days, ${daily.sum():,.0f} total")

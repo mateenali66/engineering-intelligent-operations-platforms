@@ -21,7 +21,7 @@ asserts it. That is the live, headless payoff; the manifests are the production 
 
 ## Pinned versions (verified June 2026)
 
-- `mlserver==1.7.1`, `mlserver-sklearn==1.7.1` (this is KServe's `kserve-sklearnserver` runtime)
+- `mlserver==1.7.1`, `mlserver-sklearn==1.7.1` (KServe's default runtime for the V2 protocol)
 - `scikit-learn==1.9.0`, `numpy==2.4.6`, `httpx==0.28.1` (same pins as Ch6/Ch9, so the model loads with no skew)
 - Manifests target KServe `serving.kserve.io/v1beta1` (KServe v0.19.x); the vLLM one uses the Hugging Face runtime, whose backend is vLLM 0.23.x.
 
@@ -58,13 +58,10 @@ curl -s http://localhost:8080/v2/models/anomaly-detector/infer \
 ## From the registry to storageUri (the Chapter 9 handoff)
 
 The `storageUri` in the manifests points at object storage, not at the MLflow registry,
-so the model registered in Chapter 9 has to travel there first. Run these three commands
+so the model registered in Chapter 9 has to travel there first. Run these two commands
 in the Chapter 9 lab environment (it has `mlflow`), where `anomaly-detector` is registered:
 
 ```bash
-# Run in the Chapter 9 lab environment, where anomaly-detector is registered.
-mlflow artifacts download --artifact-uri models:/anomaly-detector/1 -d model-v1
-
 # KServe's sklearn runtime loads a model.joblib, but MLflow 3 stores the sklearn
 # flavor as model.skops, so repackage the estimator once.
 python -c "import mlflow.sklearn, joblib; \
@@ -80,7 +77,7 @@ the MinIO or S3 access key in a Kubernetes Secret and reference it from the pred
 service account. A reader without a registry can point `storageUri` at KServe's public
 sample model (`gs://kserve-examples/models/sklearn/1.0/model`), the fallback in the manifest.
 
-Verification split: the `mlflow artifacts download` + repackage half is execution-verified
+Verification split: the repackage half is execution-verified
 (it produces a `model.joblib` that predicts `[1, -1]` on the chapter payload, the same
 result the local MLServer lab returns); the MinIO upload and cluster `storageUri` pull are
 statically verified, because they need a cluster.

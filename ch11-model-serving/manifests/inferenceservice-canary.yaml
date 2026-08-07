@@ -16,7 +16,6 @@ spec:
       modelFormat:
         name: sklearn
       protocolVersion: v2
-      runtime: kserve-sklearnserver
       storageUri: "s3://aiosp-models/anomaly-detector/2"  # version 2 of the same registered model
       resources:
         requests:

@@ -26,6 +26,7 @@ import torch
 
 
 def main():
+    os.makedirs("data", exist_ok=True)
     make_feature_table().to_parquet("data/features.parquet", index=False)
     X, y, names = load_feature_table("data/features.parquet")
     ds = leakage_safe_split(X, y, names)

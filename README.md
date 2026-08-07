@@ -20,11 +20,11 @@ ch08-chaos-engineering/   ch17-unified-ops-platform/
 ch09-mlops-fundamentals/  ch18-future-intelligent-ops/
 ```
 
-Each chapter directory has its own README mapping book listings (Listing N-x) to files, plus any prerequisites and pinned versions specific to that chapter.
+Each chapter directory has its own README covering what it contains, how to run it, and the prerequisites and pinned versions specific to that chapter.
 
 ## Listing-to-file convention
 
-In the book, a listing is captioned "Listing 6-2". In this repo it lives at `ch06-anomaly-detection/listing-6-2-isolation-forest.py` (or similar), and the chapter README has a table mapping the two. The printed code matches the file where shown.
+Files are named for what they do rather than for the listing number that prints them, so the Chapter 6 detector lives at `ch06-anomaly-detection/pipeline/deep_models.py` and not at a numbered filename. A printed listing is an excerpt of one of these files and appears in it verbatim; each chapter README records what the directory contains, its prerequisites, and its pinned versions, and most call out the listings they back by number.
 
 ## Running the examples
 
@@ -65,7 +65,7 @@ The ch02 Backstage scaffolder skeleton (`scaffolder-templates/model/skeleton/inf
 
 ## Status
 
-As of June 21, 2026, chapter directories `ch01` through `ch18` are populated (all 18) with runnable, version-pinned, CI-tested code. The root CI runs 22 gating jobs (above). The repository is built alongside the manuscript; Apress migrates it into the official `github.com/Apress` organization near production.
+Chapter directories `ch01` through `ch18` are all populated. Every chapter that ships runnable code ships it version-pinned and CI-tested; a few chapters carry reference manifests rather than executable labs. The root CI runs the 22 jobs listed above, 21 of which gate the build; `iac-insecure` is deliberately non-gating because its job is to keep failing. The repository is built alongside the manuscript, and Apress hosts the published copy in their own GitHub organization.
 
 ## License
 

@@ -57,7 +57,7 @@ git-ignored, never the tracked `.dvc/config`.
 See `requirements.txt`. Tested against MLflow 3.14.0, scikit-learn 1.9.0,
 numpy 2.4.6, DVC 3.67.1 (the DVC `[s3]` extra is needed only when you move the
 remote to MinIO or S3; the local-directory remote in the listing needs plain DVC).
-The sample workflow pins `actions/checkout@v7` and `actions/setup-python@v6`.
+The sample workflow pins `actions/checkout@v7` and `actions/setup-python@v7`.
 
 ## MLflow 3 note
 

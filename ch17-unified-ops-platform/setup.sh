@@ -52,8 +52,9 @@ kubectl wait --for=condition=available --timeout=300s \
   deployment/argocd-server -n argocd
 
 # 3. KServe: the serving substrate (predictive AND generative).
-curl -sL https://github.com/kserve/kserve/releases/download/v0.18.0/install.sh \
-  | bash -s v0.18.0
+curl -sL -o /tmp/kserve-install.sh \
+  https://github.com/kserve/kserve/releases/download/v0.18.0/kserve-standard-mode-full-install-with-manifests.sh
+bash /tmp/kserve-install.sh
 
 # 4. The OpenTelemetry Collector: the observability substrate.
 kubectl create namespace observability

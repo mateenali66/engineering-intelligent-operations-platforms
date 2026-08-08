@@ -9,7 +9,7 @@ security gate.
 |---|---|---|
 | Terraform | 1.15.6 | HCL and `required_version >= 1.9` baseline |
 | OpenTofu | 1.12.3 | drop-in alternative; the modules run under both `terraform` and `tofu` |
-| hashicorp/aws provider | 6.51.0 (`~> 6.0`) | S3 and EKS resource syntax in Listings 4-1 and 4-2 |
+| hashicorp/aws provider | 6.58.0 (`~> 6.0`) | S3 and EKS resource syntax in Listings 4-1 and 4-2 |
 | hashicorp/kubernetes provider | 2.x (`~> 2.0`) | NVIDIA device-plugin DaemonSet |
 | Checkov | 3.3.1 | broad built-in IaC policy library; the day-one workhorse |
 | Trivy | 0.71.1 | config, secret, and vulnerability scanning; absorbed tfsec in 2023 |

@@ -14,7 +14,7 @@ from __future__ import annotations
 from agentops.agent import RemediationAgent
 from agentops.control_plane import approve, reconcile
 from agentops.guardian import Guardian, GuardianPaused
-from agentops.models import Actor, Anomaly
+from agentops.models import Actor, Anomaly, Deploy
 
 
 def main() -> None:
@@ -25,6 +25,14 @@ def main() -> None:
         service="checkout",
         summary="p95 latency tripled right after the 14:02 rollout.",
         suspect_revision=42,
+        schema_version=3,
+        # The deploy log the rollback target comes from: r41 ran healthy on
+        # the schema the service still uses, so it is a safe place to go back to.
+        history=(
+            Deploy(40, healthy=True, schema_version=3),
+            Deploy(41, healthy=True, schema_version=3),
+            Deploy(42, healthy=False, schema_version=3),
+        ),
     )
 
     print(f"agent autonomy level: {agent.level.name}")

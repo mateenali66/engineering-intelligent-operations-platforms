@@ -39,6 +39,15 @@ class Actor:
     is_human: bool
 
 
+@dataclass(frozen=True)
+class Deploy:
+    """One entry in the service's deploy log: what ran and how it went."""
+
+    revision: int
+    healthy: bool        # held its SLOs for the whole time it was live
+    schema_version: int  # the data and config schema this revision expects
+
+
 @dataclass
 class Anomaly:
     """A signal handed to the agent, the kind the Chapter 6 detector produces."""
@@ -46,6 +55,8 @@ class Anomaly:
     service: str
     summary: str
     suspect_revision: int
+    schema_version: int = 0                 # the schema the service runs on now
+    history: tuple[Deploy, ...] = ()        # recorded deploys, oldest first
 
 
 @dataclass

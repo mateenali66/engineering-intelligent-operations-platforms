@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Run both DAGs of Listing 10-2 end to end with no scheduler: the producer writes
 # the feature table and marks the asset updated, the consumer retrains, gates on
-# the 0.90 AUC baseline, and registers a version. Fails unless anomaly-detector
-# has a registered version whose AUC clears the baseline.
+# the 0.90 AUC baseline, and registers a version. Then runs the retrain again on
+# the same features, the state a retry sees after a crash that followed
+# registration, and fails unless there is still exactly one version, above the
+# baseline.
 set -euo pipefail
 cd "$(dirname "$0")"
 WORK=$(mktemp -d)
@@ -16,12 +18,14 @@ airflow db migrate >/dev/null
 airflow dags reserialize >/dev/null
 airflow dags test refresh_features >/dev/null
 airflow dags test retrain_anomaly_detector >/dev/null
+airflow dags test retrain_anomaly_detector >/dev/null  # retry on the same input
 
 python - <<'PY'
 import mlflow
 
 versions = mlflow.MlflowClient().search_model_versions("name='anomaly-detector'")
 assert versions, "no anomaly-detector version was registered"
+assert len(versions) == 1, f"retry registered a duplicate: {len(versions)} versions"
 client = mlflow.MlflowClient()
 for v in versions:
     auc = client.get_run(v.run_id).data.metrics["auc"]

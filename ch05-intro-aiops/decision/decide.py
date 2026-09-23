@@ -53,6 +53,9 @@ def enqueue_bounded_action(action: Action) -> Action:
     return action
 
 
+# Confidence-gated decision step. The model detects and diagnoses;
+# this function decides whether to act automatically or page a human.
+
 AUTO_TIERS = frozenset({"safe"})  # tiers approved to run unattended
 
 

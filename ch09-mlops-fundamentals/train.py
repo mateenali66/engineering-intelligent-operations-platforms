@@ -3,12 +3,17 @@
 This takes the anomaly detector from Chapter 6 and wraps it in the model
 lifecycle: an experiment run that records the parameters, the metric, and the
 model itself, then registers that model under a name so it can be promoted and
-served. MLflow 3 changed the model-logging call: pass `name=`, not the
+served. It trains on the file Listing 9-1 versions with DVC and tags the run
+with that file's md5, the same hash the .dvc pointer records, so a registered
+version traces back to the exact dataset version it was trained on. MLflow 3 changed the model-logging call: pass `name=`, not the
 deprecated `artifact_path=`. The registry needs a database-backed store, so the
 tracking URI points at SQLite, not the bare file store.
 """
 
 from __future__ import annotations
+
+import hashlib
+import os
 
 import mlflow
 import mlflow.sklearn
@@ -23,18 +28,22 @@ mlflow.set_tracking_uri("sqlite:///mlflow.db")
 mlflow.set_experiment("aiosp-anomaly-detector")
 
 
-def make_data(seed=42):
-    """Synthetic telemetry features with labels, standing in for Chapter 6 data."""
-    rng = np.random.default_rng(seed)
-    normal = rng.normal(0.0, 1.0, size=(800, 6))
-    anomalous = rng.normal(3.0, 1.0, size=(80, 6))
-    X = np.vstack([normal, anomalous])
-    y = np.concatenate([np.zeros(800), np.ones(80)])
-    return X, y
+DATASET = "data/telemetry.csv"  # the file Listing 9-1 tracks with DVC
+
+
+def load_dataset(path=DATASET):
+    """Return (X, y, md5) for the DVC-tracked dataset: six features, then label."""
+    if not os.path.exists(path):
+        import generate_data  # same seed, so the same bytes and the same hash
+        generate_data.main()
+    with open(path, "rb") as f:
+        md5 = hashlib.md5(f.read()).hexdigest()  # equals the .dvc pointer's md5
+    rows = np.loadtxt(path, delimiter=",", skiprows=1)
+    return rows[:, :-1], rows[:, -1], md5
 
 
 def main():
-    X, y = make_data()
+    X, y, dataset_md5 = load_dataset()
     # Hold out 30 percent for evaluation. Never score the gate on training data:
     # a model measured on the rows it was fit on reports an inflated metric.
     X_train, X_val, y_train, y_val = train_test_split(
@@ -50,6 +59,8 @@ def main():
 
         mlflow.log_params(params)
         mlflow.log_metric("auc", auc)
+        # The link from this run back to the dataset version in Git and DVC.
+        mlflow.set_tags({"dataset.path": DATASET, "dataset.md5": dataset_md5})
 
         signature = infer_signature(X_train, model.predict(X_train))
         # MLflow 3: 'name', not 'artifact_path'. registered_model_name registers

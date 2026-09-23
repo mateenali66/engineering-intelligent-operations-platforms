@@ -385,6 +385,7 @@ jobs:
         run: |
           pip install \
             mlflow==3.14.0 \
+            skops==0.14.0 \
             scikit-learn==1.9.0 \
             numpy==2.4.6
 

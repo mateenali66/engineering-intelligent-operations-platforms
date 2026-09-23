@@ -4,9 +4,16 @@ The opener's five-figure bill had one cause: per-token economics met unbounded
 input, with no budget, no cap, and no cheaper fallback for simple queries. This
 module is the countermeasure. It reads the same token counts Lab 1 already put on
 the span (gen_ai.usage.input_tokens / output_tokens), turns them into dollars
-with an explicit price table, accumulates spend per route, and enforces a daily
-budget: over budget it downshifts a request to the cheapest route it has, and a
-request already on that route (nowhere cheaper to go) is refused.
+with an explicit price table, and accumulates spend per route. It enforces two
+separate limits: a soft downshift line, past which requests go to the cheapest
+route, and a hard daily cap, which no request may cross. Before each call the
+meter reserves the call's worst-case cost (the real input plus the max_tokens
+output cap), so an admitted call cannot push spend past the cap, and a request
+that fits on no route is refused, however often it is retried.
+
+This is an in-process meter for one instance. Section 13.7 covers what a
+production version adds: a shared store for reservations across instances and a
+daily reset keyed on the date.
 
 No LLM, no key, no network: the token counts come from the stub in Lab 1, so the
 whole meter is deterministic and runs in CI. Swap in a live client and the
@@ -32,8 +39,11 @@ PRICES_PER_1M = {
 }
 
 
+MAX_OUTPUT_TOKENS = 1_024  # the max_tokens cap sent with every call
+
+
 class BudgetExceeded(Exception):
-    """Raised when the budget is spent and a request cannot be downshifted."""
+    """Raised when a request's worst-case cost fits on no route."""
 
 
 def cost_usd(route: str, in_tok: int, out_tok: int) -> float:
@@ -43,11 +53,14 @@ def cost_usd(route: str, in_tok: int, out_tok: int) -> float:
 
 
 class CostMeter:
-    """Per-route token and cost accounting with a daily budget cap."""
+    """Per-route spend with a soft downshift line and a hard daily cap."""
 
-    def __init__(self, daily_budget_usd: float, cheapest_route: str = MINI):
+    def __init__(self, daily_budget_usd: float, downshift_at: float = 0.5,
+                 cheapest_route: str = MINI):
         self.budget = daily_budget_usd
+        self.downshift_line = daily_budget_usd * downshift_at
         self.cheapest = cheapest_route
+        self.reserved = 0.0
         self.cost_by_route: dict[str, float] = defaultdict(float)
         self.tokens_by_route: dict[str, int] = defaultdict(int)
 
@@ -55,16 +68,21 @@ class CostMeter:
     def spent(self) -> float:
         return sum(self.cost_by_route.values())
 
-    def route_for(self, requested: str) -> str:
-        """Honor the request under budget; over budget downshift, then refuse."""
-        if self.spent < self.budget:
-            return requested
-        if requested != self.cheapest:
-            return self.cheapest
-        raise BudgetExceeded(f"daily budget ${self.budget:.2f} spent, refusing")
+    def admit(self, requested: str, in_tok: int) -> tuple[str, float]:
+        """Choose a route and reserve its worst-case cost, or refuse."""
+        committed = self.spent + self.reserved
+        first = requested if committed < self.downshift_line else self.cheapest
+        for route in dict.fromkeys((first, self.cheapest)):
+            worst = cost_usd(route, in_tok, MAX_OUTPUT_TOKENS)
+            if committed + worst <= self.budget:
+                self.reserved += worst
+                return route, worst
+        raise BudgetExceeded(f"daily cap ${self.budget:.2f} reached, refusing")
 
-    def record(self, route: str, in_tok: int, out_tok: int) -> float:
-        """Charge one served request to its route and return its cost."""
+    def settle(self, route: str, reservation: float,
+               in_tok: int, out_tok: int) -> float:
+        """Release the reservation and charge what the call actually used."""
+        self.reserved -= reservation
         charge = cost_usd(route, in_tok, out_tok)
         self.cost_by_route[route] += charge
         self.tokens_by_route[route] += in_tok + out_tok
@@ -72,41 +90,48 @@ class CostMeter:
 
 
 # The workload the meter replays below: a label, the route the caller asked for,
-# and the token counts. The first two rows reuse Lab 1's span (41 in / 32 out);
-# the "pasted document" rows are the opener's runaway, a long input on the
-# frontier route.
+# the token counts, and how many times it arrives. The first row reuses Lab 1's
+# span (41 in / 32 out); the pasted-document rows are the opener's runaway, a
+# client retrying a long input on the frontier route over and over.
 WORKLOAD = [
-    ("incident question", FRONTIER, 41, 32),
-    ("incident question", FRONTIER, 41, 32),
-    ("pasted runbook dump", FRONTIER, 200_000, 600),
-    ("pasted runbook dump", FRONTIER, 200_000, 600),
-    ("pasted runbook dump", FRONTIER, 200_000, 600),
-    ("simple greeting", MINI, 41, 32),
+    ("incident question", FRONTIER, 41, 32, 2),
+    ("pasted runbook dump", FRONTIER, 150_000, 600, 30),
+    ("simple greeting", MINI, 41, 32, 1),
 ]
 
 
-def run() -> CostMeter:
-    """Replay the workload through a $1.00/day meter and return the meter."""
-    meter = CostMeter(daily_budget_usd=1.00)
-    for label, requested, in_tok, out_tok in WORKLOAD:
-        try:
-            route = meter.route_for(requested)
-        except BudgetExceeded as exc:
-            print(f"  REFUSED {label:<20} ({requested}): {exc}")
-            continue
-        charge = meter.record(route, in_tok, out_tok)
-        note = "" if route == requested else f"  downshifted from {requested}"
-        print(f"  served  {label:<20} -> {route:<20} ${charge:.4f}{note}")
-    return meter
+def run(meter: CostMeter) -> list[tuple[str, str, int]]:
+    """Replay the workload; return (label, outcome, count) runs in order."""
+    runs: list[tuple[str, str, int]] = []
+    for label, requested, in_tok, out_tok, repeat in WORKLOAD:
+        for _ in range(repeat):
+            try:
+                route, held = meter.admit(requested, in_tok)
+            except BudgetExceeded:
+                outcome = "REFUSED, daily cap reached"
+            else:
+                meter.settle(route, held, in_tok, out_tok)
+                outcome = f"served on {route}"
+                if route != requested:
+                    outcome += " (downshifted)"
+            if runs and runs[-1][:2] == (label, outcome):
+                runs[-1] = (label, outcome, runs[-1][2] + 1)
+            else:
+                runs.append((label, outcome, 1))
+    return runs
 
 
 if __name__ == "__main__":
-    print(f"daily budget: $1.00   (frontier {FRONTIER}, fallback {MINI})")
-    m = run()
+    m = CostMeter(daily_budget_usd=1.00)
+    print(f"daily cap: $1.00, downshift at ${m.downshift_line:.2f} "
+          f"(frontier {FRONTIER}, fallback {MINI})")
+    for label, outcome, count in run(m):
+        print(f"  {count:>2} x {label:<20} {outcome}")
     print("per-route ledger:")
     for route in (FRONTIER, MINI):
         print(
-            f"  {route:<20} {m.tokens_by_route[route]:>7} tokens "
+            f"  {route:<20} {m.tokens_by_route[route]:>9} tokens "
             f"${m.cost_by_route[route]:.4f}"
         )
-    print(f"total spend: ${m.spent:.4f} of $1.00 budget")
+    assert m.spent <= m.budget and abs(m.reserved) < 1e-9
+    print(f"total spend: ${m.spent:.4f} of $1.00 cap, never exceeded")

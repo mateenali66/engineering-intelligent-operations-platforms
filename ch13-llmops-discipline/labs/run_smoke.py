@@ -13,8 +13,10 @@ teaches:
                             asserted here.
   Lab 3 (cost meter)      : the same span token counts become dollars through an
                             explicit price table; per-route spend accumulates; and
-                            the daily budget cap downshifts the expensive route and
-                            refuses a request already on the cheapest route.
+                            past a soft line the expensive route downshifts; the
+                            hard daily cap is never exceeded; and repeated
+                            over-cap requests on either route are refused and
+                            add no spend.
 
 This is what CI runs. Prints "smoke: ok" when every assertion holds. No LLM API
 key, no network, no collector, no GPU. The Langfuse OTLP export (Lab 1), the
@@ -96,23 +98,33 @@ def main():
     print(f"lab3 cost: span {span_in}/{span_out} tokens -> ${span_cost:.6f} on "
           f"{lab3_cost_meter.FRONTIER}")
 
-    meter = lab3_cost_meter.run()
+    meter = lab3_cost_meter.CostMeter(daily_budget_usd=1.00)
+    runs = lab3_cost_meter.run(meter)
     frontier_spend = meter.cost_by_route[lab3_cost_meter.FRONTIER]
     mini_spend = meter.cost_by_route[lab3_cost_meter.MINI]
     print(f"lab3 ledger: frontier=${frontier_spend:.4f} mini=${mini_spend:.4f} "
           f"total=${meter.spent:.4f}")
 
-    # The meter must have spent past the $1.00 budget (the runaway crossed it),
-    # downshifted onto the cheap route (non-zero mini spend), and it must refuse a
-    # cheapest-route request once over budget.
-    assert meter.spent > 1.00, "the runaway workload should cross the $1.00 budget"
-    assert mini_spend > 0.0, "over budget, the expensive route must downshift to mini"
-    over = lab3_cost_meter.CostMeter(daily_budget_usd=0.0)
-    try:
-        over.route_for(lab3_cost_meter.MINI)
-        raise AssertionError("a cheapest-route request over budget must be refused")
-    except lab3_cost_meter.BudgetExceeded:
-        pass
+    # The hard cap holds: the runaway never pushes spend past the budget, and no
+    # reservation is left open. Past the soft line the frontier route downshifted
+    # (non-zero mini spend), and the retry loop hit the cap and was refused.
+    assert meter.spent <= meter.budget, "spend must never exceed the daily cap"
+    assert abs(meter.reserved) < 1e-9, "every reservation must be settled"
+    assert mini_spend > 0.0, "past the soft line, the frontier route must downshift"
+    refused = sum(n for _, outcome, n in runs if outcome.startswith("REFUSED"))
+    assert refused >= 2, "repeated over-cap requests must each be refused"
+
+    # Repeated requests on a spent budget are refused on EITHER route and add
+    # nothing: the bug this replaces downshifted an over-budget frontier request
+    # to the cheap route and kept charging for it on every retry.
+    spent_out = lab3_cost_meter.CostMeter(daily_budget_usd=0.001)
+    for requested in [lab3_cost_meter.FRONTIER, lab3_cost_meter.MINI] * 5:
+        try:
+            spent_out.admit(requested, 150_000)
+            raise AssertionError(f"{requested} over the cap must be refused")
+        except lab3_cost_meter.BudgetExceeded:
+            pass
+    assert spent_out.spent == 0.0 and spent_out.reserved == 0.0
 
     print("smoke: ok")
 

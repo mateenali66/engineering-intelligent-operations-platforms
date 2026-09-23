@@ -10,7 +10,7 @@ jailbreak probes.
 | 13-2 | `labs/lab2_eval_gate.py` | A Pytest eval gate (DeepEval `ExactMatchMetric`) that passes the good release and fails on a regression | RUNS |
 | 13-2b | `labs/lab2_ragas_online.py` | The Ragas RAG-metric (faithfulness) equivalent of the gate | validation-only |
 | 13-3 | `redteam/promptfooconfig.yaml` | Promptfoo jailbreak / prompt-injection red-team probe set | YAML lint only |
-| 13-4 | `labs/lab3_cost_meter.py` | A token cost meter: span token counts -> dollars via a price table, per-route spend, and a daily budget cap that downshifts then refuses | RUNS |
+| 13-4 | `labs/lab3_cost_meter.py` | A token cost meter: span token counts -> dollars via a price table, per-route spend, a soft line that downshifts to the cheap route, and a hard daily cap enforced by reserving each call's worst-case cost | RUNS |
 | - | `labs/run_smoke.py` | Headless smoke test for labs 1-3; prints `smoke: ok` | RUNS |
 
 ## What runs in CI vs what is validation-only
@@ -29,10 +29,12 @@ CI has **no LLM API key and no network egress**.
   asserted-failure case.
 - Lab 3 runs the cost meter over the same stubbed token counts: it converts
   tokens to dollars through an explicit price table, accumulates spend per route,
-  and enforces a daily budget that downshifts an over-budget request to the cheap
-  route and refuses a request already on the cheapest route. Deterministic, no
-  key. `run_smoke.py` asserts the budget is crossed, a downshift happened, and a
-  cheapest-route request over budget is refused.
+  downshifts to the cheap route past a soft line, and enforces a hard daily cap
+  by reserving each call's worst-case cost (real input plus the max_tokens cap)
+  before it runs. Deterministic, no key. `run_smoke.py` asserts spend never
+  exceeds the cap, a downshift happened, and repeated over-cap requests on either
+  route are refused and add no spend. It is an in-process meter; a multi-instance
+  deployment keeps reservations in a shared store keyed by date.
 - The Promptfoo config is YAML-linted.
 
 **Validation-only (needs an LLM key / a running service; CI compiles but does

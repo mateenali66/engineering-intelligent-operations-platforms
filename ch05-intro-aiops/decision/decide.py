@@ -16,7 +16,8 @@ or historical confirmation rate), never taken as a raw score or softmax value.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -25,10 +26,20 @@ class Diagnosis:
     confidence: float  # 0.0 to 1.0; calibrated, not a raw model score (see module docstring)
 
 
+@dataclass(frozen=True)
+class Precondition:
+    """A live-state check that must hold for the action to be safe right now,
+    for example "other replicas are Ready" or "the node pool has headroom"."""
+
+    name: str
+    check: Callable[[], bool]
+
+
 @dataclass
 class Action:
     name: str
-    risk_tier: str  # "safe" or "consequential"
+    risk_tier: str  # only tiers in AUTO_TIERS may run unattended
+    preconditions: tuple[Precondition, ...] = field(default_factory=tuple)
 
 
 def page_human(*, reason: str, **context: object) -> None:
@@ -42,6 +53,9 @@ def enqueue_bounded_action(action: Action) -> Action:
     return action
 
 
+AUTO_TIERS = frozenset({"safe"})  # tiers approved to run unattended
+
+
 def decide(anomaly_score, diagnosis, action, *, score_min, conf_min):
     """Return an action to enqueue, or None to escalate to a human."""
     if anomaly_score < score_min:
@@ -51,11 +65,20 @@ def decide(anomaly_score, diagnosis, action, *, score_min, conf_min):
         page_human(reason="low-confidence diagnosis", diagnosis=diagnosis)
         return None
 
-    if action.risk_tier == "consequential":
-        page_human(reason="action requires human approval", action=action)
+    # Allowlist, not denylist: an unknown or misspelled tier escalates.
+    if action.risk_tier not in AUTO_TIERS:
+        page_human(reason="tier not approved to auto-run", action=action)
         return None
 
-    # High anomaly score, high-confidence diagnosis, reversible action.
+    # Preconditions are checked against live state at decision time.
+    # An action that declares none fails closed.
+    unmet = [p.name for p in action.preconditions if not p.check()]
+    if not action.preconditions or unmet:
+        page_human(reason="preconditions not met", unmet=unmet,
+                   action=action)
+        return None
+
+    # Clear anomaly, confident diagnosis, approved tier, preconditions hold.
     return enqueue_bounded_action(action)
 
 
@@ -75,16 +98,34 @@ def score_to_percentile(score, calibration_window):
 
 
 if __name__ == "__main__":
-    safe = Action(name="restart-deployment", risk_tier="safe")
-    risky = Action(name="failover-database", risk_tier="consequential")
+    replicas_ready = Precondition("other replicas Ready", lambda: True)
+    no_headroom = Precondition("node pool has headroom", lambda: False)
+
+    safe = Action("restart-deployment", "safe", (replicas_ready,))
+    risky = Action("failover-database", "consequential")
     confident = Diagnosis(cause="sidecar-memory-leak", confidence=0.92)
     unsure = Diagnosis(cause="unknown", confidence=0.40)
+    gate = {"score_min": 0.8, "conf_min": 0.8}
 
-    # Only the confident diagnosis on a safe, reversible action auto-runs.
-    assert decide(0.95, confident, safe, score_min=0.8, conf_min=0.8) is safe
-    assert decide(0.10, confident, safe, score_min=0.8, conf_min=0.8) is None
-    assert decide(0.95, unsure, safe, score_min=0.8, conf_min=0.8) is None
-    assert decide(0.95, confident, risky, score_min=0.8, conf_min=0.8) is None
+    # Only a confident diagnosis on an approved tier whose preconditions
+    # hold auto-runs.
+    assert decide(0.95, confident, safe, **gate) is safe
+    assert decide(0.10, confident, safe, **gate) is None
+    assert decide(0.95, unsure, safe, **gate) is None
+    assert decide(0.95, confident, risky, **gate) is None
+
+    # Fail closed on anything the allowlist does not name: an unknown
+    # tier, a misspelling, a different case, or an empty value.
+    for tier in ("low", "Safe", "safe ", "", "reversible"):
+        odd = Action("restart-deployment", tier, (replicas_ready,))
+        assert decide(0.95, confident, odd, **gate) is None, tier
+
+    # An approved tier still escalates when a precondition fails, or when
+    # the action declares no preconditions at all.
+    blocked = Action("scale-up", "safe", (replicas_ready, no_headroom))
+    bare = Action("restart-deployment", "safe")
+    assert decide(0.95, confident, blocked, **gate) is None
+    assert decide(0.95, confident, bare, **gate) is None
 
     # Calibration: a raw detector score becomes a percentile against a
     # known-good window, which is the number score_min actually gates on.
@@ -92,8 +133,8 @@ if __name__ == "__main__":
     assert score_to_percentile(0.05, window) == 0.0  # below the window
     assert score_to_percentile(0.6, window) == 1.0  # above the window
     assert score_to_percentile(0.3, window) == 0.6  # ranks 3 of 5 at or below
-    # A score below the validation window ranks low, so the gate declines to act
-    # (returns None, no enqueue), leaving the printed output above unchanged.
+    # A score below the validation window ranks low, so the gate declines
+    # to act (returns None, no enqueue).
     assert decide(score_to_percentile(0.05, window), confident, safe,
-                  score_min=0.8, conf_min=0.8) is None
+                  **gate) is None
     print("ok")

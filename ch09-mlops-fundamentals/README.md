@@ -35,8 +35,9 @@ orchestrated pipeline logs models into this same registry.
 
 `version-data.sh` (Listing 9-1) runs the whole data-versioning leg on a laptop:
 `generate_data.py` writes `data/telemetry.csv`, and the remote is a local
-directory, so no object store is needed. It still needs a Git repo (DVC commits
-its pointer to Git), so it is not run in CI, but it completes end to end locally.
+directory, so no object store is needed. It needs a Git repo, because DVC commits
+its pointer to Git, so CI runs it in a throwaway repo and checks that the pointer
+file exists and the remote is up to date.
 The generated `.dvc` pointer file looks like this (a content hash plus path,
 which is all Git tracks):
 
@@ -57,7 +58,7 @@ git-ignored, never the tracked `.dvc/config`.
 See `requirements.txt`. Tested against MLflow 3.14.0, scikit-learn 1.9.0,
 numpy 2.4.6, DVC 3.67.1 (the DVC `[s3]` extra is needed only when you move the
 remote to MinIO or S3; the local-directory remote in the listing needs plain DVC).
-The sample workflow pins `actions/checkout@v7` and `actions/setup-python@v7`.
+The sample workflow pins `actions/checkout@v7.0.1` and `actions/setup-python@v7.0.0`, the same versions as the root CI.
 
 ## MLflow 3 note
 

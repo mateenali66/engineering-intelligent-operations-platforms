@@ -4,7 +4,8 @@ This is Listing 14-2, the heart of iacgen. The loop:
 
   1. generate()  -> recorded insecure module (the stubbed LLM)
   2. scan it in PARALLEL with Checkov + Trivy (real scanners)
-  3. if there are HIGH/CRITICAL findings AND the retry budget is not exhausted,
+  3. if there are blocking findings (HIGH, CRITICAL, or unranked) or a scanner
+     error, AND the retry budget is not exhausted,
      repair() -> the next recorded, more-hardened revision, then re-scan
   4. repeat up to `max_passes`
   5. once clean, run the OPA/Conftest gate against the plan JSON
@@ -32,10 +33,11 @@ class PassRecord:
     """One pass through the loop: what was scanned and what came back."""
 
     index: int                       # 1-based pass number
-    blocking_count: int              # HIGH/CRITICAL findings this pass
+    blocking_count: int              # blocking findings this pass
     total_count: int                 # all findings this pass
     counts_by_severity: dict[str, int]
     repaired: bool                   # did we call repair() after this pass?
+    errors: list[str] = field(default_factory=list)  # scanner failures
 
 
 @dataclass
@@ -55,7 +57,7 @@ def run_loop(prompt: str, workdir: str | Path, *,
     """Run the bounded generate-scan-repair loop and the OPA gate.
 
     `max_passes` is the retry budget: at most this many scan passes. The loop
-    stops early the moment a scan has zero HIGH/CRITICAL findings.
+    stops early the moment a scan has zero blocking findings and no scanner errors.
     """
     workdir = Path(workdir)
     module = gen.generate(prompt, workdir, sequence=sequence)
@@ -71,10 +73,11 @@ def run_loop(prompt: str, workdir: str | Path, *,
             total_count=len(scan.findings),
             counts_by_severity=scan.counts_by_severity(),
             repaired=False,
+            errors=scan.errors,
         )
 
         if not scan.has_blocking:
-            # Converged: no HIGH/CRITICAL findings remain.
+            # Converged: no blocking findings and no scanner errors.
             outcome.converged = True
             outcome.passes.append(record)
             outcome.final_module = module
@@ -115,13 +118,14 @@ def format_trace(outcome: LoopOutcome) -> str:
         sev = ", ".join(f"{k}={v}" for k, v in sorted(p.counts_by_severity.items()))
         tail = " -> repair()" if p.repaired else ""
         lines.append(
-            f"pass {p.index}: {p.blocking_count} HIGH/CRITICAL "
+            f"pass {p.index}: {p.blocking_count} blocking "
             f"({p.total_count} total; {sev or 'none'}){tail}"
+            + (f" [scanner errors: {'; '.join(p.errors)}]" if p.errors else "")
         )
     if outcome.converged:
-        lines.append("converged: 0 HIGH/CRITICAL within budget")
+        lines.append("converged: 0 blocking findings within budget")
     else:
-        lines.append("NOT converged: budget exhausted with HIGH/CRITICAL remaining")
+        lines.append("NOT converged: budget exhausted with blocking findings")
     if outcome.gate is not None:
         lines.append(f"OPA gate: {'PASS' if outcome.gate.passed else 'FAIL'}"
                      + ("" if outcome.gate.passed

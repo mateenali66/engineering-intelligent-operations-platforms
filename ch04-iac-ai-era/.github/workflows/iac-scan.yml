@@ -1,4 +1,4 @@
-# NOTE: This workflow file is retained as a reference artifact for Listing 4-3
+# NOTE: This workflow file is retained as a reference artifact for Listing 4-4
 # in the book (Section 4.7: "The CI gate"), but it NEVER RUNS.
 #
 # GitHub Actions only executes workflow files located at the repository root
@@ -32,10 +32,10 @@
 #   scan:
 #     runs-on: ubuntu-22.04
 #     steps:
-#       - uses: actions/checkout@v4.2.2
+#       - uses: actions/checkout@v7.0.1
 #
 #       - name: Set up Python 3.12
-#         uses: actions/setup-python@v5.3.0
+#         uses: actions/setup-python@v7.0.0
 #         with:
 #           python-version: "3.12"
 #

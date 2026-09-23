@@ -14,7 +14,7 @@ import pandas as pd
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
-def forecast_spend(daily, steps=14, exclude_anomalies=None):
+def forecast_spend(daily, steps=14, exclude_anomalies=None, interval=0.80):
     """Fit SARIMAX on the daily series and forecast `steps` days ahead."""
     y = daily.copy()
     if exclude_anomalies is not None:
@@ -29,7 +29,7 @@ def forecast_spend(daily, steps=14, exclude_anomalies=None):
     )
     result = model.fit(disp=False)
     fc = result.get_forecast(steps=steps)
-    conf = fc.conf_int()  # columns are 'lower y' / 'upper y'
+    conf = fc.conf_int(alpha=1 - interval)  # columns 'lower y' / 'upper y'
     return pd.DataFrame({
         "forecast": fc.predicted_mean,
         "lower": conf.iloc[:, 0],
@@ -37,15 +37,37 @@ def forecast_spend(daily, steps=14, exclude_anomalies=None):
     })
 
 
-def right_size(forecast_df, provisioned_daily, safety_margin=0.15):
-    """Recommend a provisioned level: forecast peak plus a safety margin."""
-    needed = float(forecast_df["forecast"].max()) * (1 + safety_margin)
-    headroom = provisioned_daily - needed
+def right_size(forecast_df, provisioned_daily, *, horizon_days=7,
+               peak_utilization=0.75, max_cut=0.25):
+    """Propose a provisioned level for the next decision period.
+
+    Size for the top of the interval, not the mean, and keep that peak at
+    or below peak_utilization of capacity so the service keeps headroom for
+    its SLO. Cut at most max_cut per change. Spend is a proxy for demand:
+    confirm a cut against the service's own load and latency first.
+    """
+    window = forecast_df.head(horizon_days)  # refit and re-decide each week
+    expected_peak = float(window["forecast"].max())
+    upper_peak = float(window["upper"].max())
+    needed = upper_peak / peak_utilization
+    if needed < provisioned_daily:
+        action = "downsize"
+        recommended = max(needed, provisioned_daily * (1 - max_cut))
+    elif expected_peak > provisioned_daily * peak_utilization:
+        action, recommended = "scale up", needed  # demand, not just noise
+    else:
+        action, recommended = "hold", provisioned_daily  # too uncertain to cut
     return {
         "provisioned_daily": round(provisioned_daily, 2),
-        "recommended_daily": round(needed, 2),
-        "daily_headroom": round(headroom, 2),
-        "action": "downsize" if headroom > 0 else "scale up",
+        "expected_peak": round(expected_peak, 2),
+        "upper_peak": round(upper_peak, 2),
+        "needed_at_ceiling": round(needed, 2),
+        "action": action,
+        "recommended_daily": round(recommended, 2),
+        # Recovery path: restore the previous level if real daily demand
+        # passes the utilization ceiling on the new capacity.
+        "rollback_to": round(provisioned_daily, 2),
+        "revert_if_demand_over": round(recommended * peak_utilization, 2),
     }
 
 

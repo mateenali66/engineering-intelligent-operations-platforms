@@ -5,9 +5,11 @@
 #
 # Defects, on purpose:
 #   - aws_s3_bucket_public_access_block with all four flags false (the model
-#     disabled the account guardrail because the prompt said "public-facing";
-#     since April 2023 this is what makes the public ACL below take effect)
-#   - no server-side encryption configuration (objects unencrypted at rest)
+#     disabled the bucket's guardrail because the prompt said "public-facing";
+#     since April 2023 this is what makes the public ACL below take effect,
+#     unless account-level Block Public Access is on, which would still block it)
+#   - no server-side encryption configuration (no KMS key; S3 still applies its
+#     default SSE-S3 encryption to new objects, which cannot be turned off)
 #   - acl = "public-read" (the bucket is world-readable)
 #   - no versioning
 
@@ -31,9 +33,10 @@ resource "aws_s3_bucket" "telemetry" {
   bucket = var.name
 }
 
-# The prompt said "public-facing", so the model turned off Block Public Access.
-# Since April 2023 new buckets block public access and disable ACLs by default,
-# so without this the public-read ACL below would be rejected at apply.
+# The prompt said "public-facing", so the model turned off this bucket's Block
+# Public Access. Since April 2023 new buckets block public access and disable
+# ACLs by default, so without this the public-read ACL below would be rejected
+# at apply. An account-level Block Public Access setting would still refuse it.
 resource "aws_s3_bucket_public_access_block" "telemetry" {
   bucket                  = aws_s3_bucket.telemetry.id
   block_public_acls       = false

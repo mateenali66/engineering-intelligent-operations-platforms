@@ -13,14 +13,22 @@ from __future__ import annotations
 from agentops.agent import RemediationAgent
 from agentops.control_plane import ApprovalDenied, approve, reconcile
 from agentops.guardian import Guardian, GuardianPaused
-from agentops.models import Actor, Anomaly, PRStatus
+from agentops.models import Actor, Anomaly, Deploy, PRStatus
+
+# r41 ran healthy on the current schema, so it is the rollback target.
+HISTORY = (
+    Deploy(40, healthy=True, schema_version=3),
+    Deploy(41, healthy=True, schema_version=3),
+    Deploy(42, healthy=False, schema_version=3),
+)
 
 
 def main() -> None:
     guardian = Guardian()
     agent = RemediationAgent(guardian)
     cluster = {"checkout": {"revision": 42}}
-    anomaly = Anomaly("checkout", "p95 tripled after the 14:02 rollout.", 42)
+    anomaly = Anomaly("checkout", "p95 tripled after the 14:02 rollout.", 42,
+                      schema_version=3, history=HISTORY)
 
     # 1. Propose only: two PRs, cluster unchanged.
     prs = agent.handle(anomaly)

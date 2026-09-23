@@ -8,13 +8,21 @@ import pytest
 from agentops.agent import RemediationAgent
 from agentops.control_plane import ApprovalDenied, approve, reconcile
 from agentops.guardian import Guardian, GuardianOverrideDenied, GuardianPaused
-from agentops.models import Actor, Anomaly, AutonomyLevel, PRStatus
+from agentops.models import Actor, Anomaly, AutonomyLevel, Deploy, PRStatus
+
+# r41 ran healthy on the current schema, so it is the rollback target.
+HISTORY = (
+    Deploy(40, healthy=True, schema_version=3),
+    Deploy(41, healthy=True, schema_version=3),
+    Deploy(42, healthy=False, schema_version=3),
+)
 
 
 def _setup():
     guardian = Guardian()
     agent = RemediationAgent(guardian)
-    anomaly = Anomaly("checkout", "p95 tripled after the 14:02 rollout.", 42)
+    anomaly = Anomaly("checkout", "p95 tripled after the 14:02 rollout.", 42,
+                      schema_version=3, history=HISTORY)
     return guardian, agent, anomaly
 
 
@@ -86,3 +94,25 @@ def test_red_button_releases_only_by_a_human_disengage():
     # Once released, the agent acts again.
     prs = agent.handle(anomaly)
     assert len(prs) == 2
+
+
+def test_rollback_skips_an_unhealthy_prior_revision():
+    # "Suspect minus one" is not assumed good: r41 was unhealthy, so r40.
+    history = (Deploy(40, True, 3), Deploy(41, False, 3), Deploy(42, False, 3))
+    anomaly = Anomaly("checkout", "p95 tripled.", 42, schema_version=3,
+                      history=history)
+    prs = RemediationAgent(Guardian()).handle(anomaly)
+    remediation = next(p for p in prs if p.kind == "remediation")
+    assert remediation.change == {"service": "checkout", "revision": 40}
+
+
+def test_no_rollback_across_a_schema_change():
+    # Every earlier revision expects an older schema, so rolling back would run
+    # old code on new data. The agent proposes no rollback and a human decides.
+    history = (Deploy(40, True, 2), Deploy(41, True, 2), Deploy(42, False, 3))
+    anomaly = Anomaly("checkout", "p95 tripled.", 42, schema_version=3,
+                      history=history)
+    prs = RemediationAgent(Guardian()).handle(anomaly)
+    assert [p.kind for p in prs] == ["diagnosis"]
+    assert "no rollback is proposed" in prs[0].body
+

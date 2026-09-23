@@ -4,18 +4,21 @@ name: ci
 # One job per concern; each job is independently gating.
 #
 # Chapter coverage:
-#   yaml-lint   : ch02 catalog-info.yaml, ch03 OTel Collector config and operator CR
+#   yaml-lint   : YAML listings in ch01, ch02, ch03, ch04 (device plugin), ch05, ch08, ch11
 #   ch03-python : ch03 Python listings (ruff lint + py_compile with pinned deps)
 #                 + cluster-free feature-pipeline smoke test on an OTLP fixture
-#   ch05..ch09  : per-chapter Python labs (lint + end-to-end run/registry/gate)
+#   ch05..ch09  : per-chapter Python labs (lint + end-to-end run/registry/gate;
+#                 ch09 also runs the DVC listing in a throwaway Git repo)
 #   ch10-kfp    : ch10 Kubeflow Pipelines v2 listing compiles to IR (shape asserted)
-#   ch10-airflow: ch10 Airflow 3 asset DAG parses (DagBag, no scheduler)
+#   ch10-airflow: ch10 Airflow 3 asset DAGs parse, then run with `airflow dags test`
+#                 and the gated registration is checked (run_dags.sh)
 #   ch10-zenml  : ch10 ZenML pipeline runs on the local stack
 #   ch10-dvc    : ch10 DVC caching demo, second repro must skip both stages
 #   ch11-serving: ch11 serve anomaly-detector via MLServer (KServe V2) + load test
 #   ch12-monitor: ch12 NannyML CBPE + Evidently->Prometheus + River ADWIN, one 3.12 venv
 #   ch13-llmops : ch13 OTel GenAI span emission+assertion + DeepEval offline eval gate, 3.14 venv
-#   ch14-iacgen : ch14 bounded generate-scan-repair loop (Checkov+Trivy parallel) + OPA gate + SARIF
+#   ch14-iacgen : ch14 bounded generate-scan-repair loop (Checkov+Trivy parallel, fail closed)
+#                 + OPA gate + SARIF + the three chapter labs
 #   ch15-rag    : ch15 pgvector hybrid (dense+tsvector+RRF) + FlashRank rerank + contextual A/B + eval gate
 #   ch16-guardrails: ch16 layered guardrail proxy + attack harness (input/containment/output) + pickle-danger demo
 #   ch17-platform: ch17 AIOSP convergence check over the GitOps manifests + unified infra+gen_ai trace, one 3.12 venv
@@ -54,10 +57,10 @@ jobs:
     name: YAML lint
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -73,7 +76,25 @@ jobs:
           yamllint \
             --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
             ch02-platform-engineering/catalog-info.yaml \
-            ch02-platform-engineering/scaffolder-templates/service/template.yaml
+            ch02-platform-engineering/org.yaml \
+            ch02-platform-engineering/scaffolder-templates/service/template.yaml \
+            ch02-platform-engineering/scaffolder-templates/model/template.yaml
+
+      # ch01: the two teaser listings (Listings 1-1 and 1-2). They are not meant
+      # to be applied as-is, but they must stay valid YAML.
+      - name: Lint ch01 teaser YAML
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch01-convergence/inference-service.yaml \
+            ch01-convergence/otel-collector-teaser.yaml
+
+      # ch04: the NVIDIA device plugin DaemonSet (Listing 4-1).
+      - name: Lint ch04 Kubernetes YAML
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch04-iac-ai-era/k8s/nvidia-device-plugin.yaml
 
       # ch03: OpenTelemetry Collector config and operator custom resources.
       - name: Lint ch03 OTel YAML
@@ -114,7 +135,8 @@ jobs:
         run: |
           yamllint \
             --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
-            ch05-intro-aiops/remediation/restart-deployment.yaml
+            ch05-intro-aiops/remediation/restart-deployment.yaml \
+            ch05-intro-aiops/remediation/rbac.yaml
 
       # ch08: Chaos Mesh experiment manifests (chaos-mesh.org/v1alpha1).
       - name: Lint ch08 Chaos Mesh manifests
@@ -153,10 +175,10 @@ jobs:
     name: ch03 Python lint and compile
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -205,10 +227,10 @@ jobs:
     name: ch05 Python lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -236,10 +258,10 @@ jobs:
     name: ch06 anomaly-detection lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -285,10 +307,10 @@ jobs:
     name: ch07 FinOps pipeline lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -327,10 +349,10 @@ jobs:
     name: ch08 chaos flywheel lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -364,16 +386,17 @@ jobs:
   # Job 2f: ch09 MLOps fundamentals lab
   # Trains the Chapter 6 detector, logs and registers it to a real SQLite-backed
   # MLflow 3 registry, and runs the validation gate (pass on hold, block on
-  # regression). The DVC listing needs a MinIO/S3 remote, so it is not run here.
+  # regression). Then runs the DVC listing (version-data.sh) in a temp Git repo
+  # against its local-directory remote and checks the pointer file and the push.
   # ---------------------------------------------------------------------------
   ch09-python:
     name: ch09 MLOps lab lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -384,6 +407,7 @@ jobs:
         run: |
           pip install \
             mlflow==3.14.0 \
+            skops==0.14.0 \
             scikit-learn==1.9.0 \
             numpy==2.4.6
 
@@ -401,6 +425,23 @@ jobs:
         working-directory: ch09-mlops-fundamentals
         run: python run_smoke.py
 
+      # Listing 9-1 commits to Git, so run it in a throwaway repo. The remote is
+      # a local directory, so no object store is needed.
+      - name: Install DVC 3.67.1
+        run: pip install dvc==3.67.1
+
+      - name: Run the DVC listing (version-data.sh)
+        run: |
+          work=$(mktemp -d)
+          cp -R ch09-mlops-fundamentals/. "$work"
+          cd "$work"
+          git init -q && git config user.email ci@ci && git config user.name ci
+          git commit -q --allow-empty -m init
+          bash version-data.sh
+          test -f data/telemetry.csv.dvc
+          dvc status --cloud | grep -q "are in sync"
+          echo "dvc listing: ok"
+
   # ---------------------------------------------------------------------------
   # Job 2g: ch10 KFP pipeline compile
   # The Kubeflow Pipelines v2 listing compiles to the backend-agnostic IR with no
@@ -411,10 +452,10 @@ jobs:
     name: ch10 KFP compile
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -437,18 +478,21 @@ jobs:
             assert d['schemaVersion']=='2.1.0', d['schemaVersion']; print('IR ok')"
 
   # ---------------------------------------------------------------------------
-  # Job 2h: ch10 Airflow asset DAG parse
-  # The Airflow 3 asset-triggered DAG is validated by a DagBag parse, which
-  # catches every import and syntax error with no scheduler and no db migrate.
+  # Job 2h: ch10 Airflow asset DAG parse and run
+  # A DagBag parse catches every import and syntax error. Then both DAGs run
+  # with `airflow dags test` (no scheduler): the producer writes the features,
+  # the retrain gates on AUC >= 0.90 and registers a version, and run_dags.sh
+  # fails unless a version above the baseline is in the registry. Airflow is
+  # installed with its official constraints, which task execution needs.
   # ---------------------------------------------------------------------------
   ch10-airflow:
-    name: ch10 Airflow DAG parse
+    name: ch10 Airflow DAG parse and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -456,7 +500,10 @@ jobs:
         run: pip install ruff==0.9.10
 
       - name: Install ch10 Airflow dependencies
-        run: pip install -r ch10-pipeline-orchestration/lab2-airflow/requirements.txt
+        run: |
+          pip install "apache-airflow==3.2.2" --constraint \
+            https://raw.githubusercontent.com/apache/airflow/constraints-3.2.2/constraints-3.12.txt
+          pip install -r ch10-pipeline-orchestration/lab2-airflow/requirements.txt
 
       - name: Lint (ruff)
         run: ruff check ch10-pipeline-orchestration/lab2-airflow/
@@ -468,6 +515,10 @@ jobs:
           AIRFLOW__CORE__LOAD_EXAMPLES: "False"
         run: python parse_check.py
 
+      - name: Run both DAGs and check the gated registration
+        working-directory: ch10-pipeline-orchestration/lab2-airflow
+        run: ./run_dags.sh
+
   # ---------------------------------------------------------------------------
   # Job 2i: ch10 ZenML pipeline run
   # The orchestrator-agnostic pipeline runs on the default local stack to prove
@@ -478,10 +529,10 @@ jobs:
     name: ch10 ZenML run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -512,10 +563,10 @@ jobs:
     name: ch10 DVC caching
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -556,10 +607,10 @@ jobs:
     name: ch11 serving (MLServer V2 + load test)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -614,10 +665,10 @@ jobs:
     name: ch12 monitoring (NannyML + Evidently + River)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -692,10 +743,10 @@ jobs:
     name: ch13 LLMOps (GenAI span + eval gate)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.14
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.14"
 
@@ -777,10 +828,10 @@ jobs:
       run:
         working-directory: ch14-llm-devops-tools/iacgen
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.14
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.14"
 
@@ -791,6 +842,12 @@ jobs:
 
       - name: Install pytest 8.3.4
         run: pip install pytest==8.3.4
+
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Lint (ruff)
+        run: ruff check .
 
       - name: Install Trivy 0.71.1
         run: |
@@ -837,6 +894,15 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/ch14-llm-devops-tools/iacgen
         run: python -m pytest tests/ -q
 
+      # The three lab scripts the chapter walks through, run as printed.
+      - name: Run the chapter labs (scan, loop and gate, degradation)
+        env:
+          PYTHONPATH: .
+        run: |
+          python labs/lab1_generate_scan.py
+          python labs/lab2_loop_gate_sarif.py
+          python labs/lab3_degradation.py
+
       # The OPA/Conftest gate via the CLI, the way the chapter shows it: the
       # recorded insecure plan is DENIED (shell negation asserts exit 1), the
       # hardened plan PASSES.
@@ -859,18 +925,18 @@ jobs:
 
       # Upload the SARIF to GitHub code scanning (the production destination).
       # Code scanning is free on public repos; on private repos it needs GitHub
-      # Advanced Security. This repo is private until Apress migrates it, so we
-      # only upload when public and always keep the SARIF as a build artifact.
+      # Advanced Security. The step runs only while the repository is public, and
+      # the SARIF is always kept as a build artifact.
       - name: Upload SARIF to GitHub code scanning
         if: ${{ !github.event.repository.private }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ch14-llm-devops-tools/iacgen/iacgen.sarif
           category: ch14-iacgen
 
       - name: Archive the SARIF as a build artifact
         if: always()
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ch14-iacgen-sarif
           path: ch14-llm-devops-tools/iacgen/iacgen.sarif
@@ -890,10 +956,10 @@ jobs:
     name: IaC scan, clean-module (must pass)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -932,10 +998,10 @@ jobs:
     name: IaC scan, generated-module (NON-GATING, must find issues)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -992,7 +1058,7 @@ jobs:
     name: OPA/Conftest policy tests
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Install Conftest 0.68.2
         run: |
@@ -1061,10 +1127,10 @@ jobs:
       TOKENIZERS_PARALLELISM: "false"
 
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -1074,7 +1140,7 @@ jobs:
       # Cache the embedding + reranker model downloads so the job is fast after
       # the first run (MiniLM ~90MB to HF cache; FlashRank TinyBERT ~3.3MB).
       - name: Cache models
-        uses: actions/cache@v4.2.4
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cache/huggingface
@@ -1125,10 +1191,10 @@ jobs:
     name: ch16 guardrails (proxy + attack harness)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -1169,7 +1235,7 @@ jobs:
   # delivery loop, and the shared OTLP endpoint, with predictive AND generative
   # model formats present; and (2) emits the unified trace and asserts the infra
   # span and the gen_ai child span share one trace, carrying token usage and a
-  # computed cost. pytest then runs both, INCLUDING a negative test that the
+  # computed cost. pytest then runs both, INCLUDING five negative tests that the
   # convergence check FAILS when a workload diverges (so it is a real assertion).
   #
   # Validation-only, NOT executed: setup.sh (stands AIOSP up on a real kind
@@ -1183,10 +1249,10 @@ jobs:
     name: ch17 Unified Platform (convergence + unified trace)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -1218,7 +1284,7 @@ jobs:
           PYTHONPATH: .
         run: python run_smoke.py
 
-      # Includes the negative test: the convergence check must FAIL on a
+      # Includes five negative tests: the convergence check must FAIL on a
       # divergent workload, so it is a real assertion, not a rubber stamp.
       - name: Run the convergence + tracing test suite
         working-directory: ch17-unified-ops-platform
@@ -1249,10 +1315,10 @@ jobs:
     name: ch18 Future (agent control plane)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 

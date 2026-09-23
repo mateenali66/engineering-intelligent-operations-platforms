@@ -46,9 +46,9 @@ def evaluate(model, X_test, y_test):
 
 
 if __name__ == "__main__":
-    from data import leakage_safe_split, load_feature_table
+    from data import load_feature_table, normal_only_split
 
     X, y, names = load_feature_table("data/features.parquet")
-    ds = leakage_safe_split(X, y, names)
+    ds = normal_only_split(X, y, names)
     model = fit_isolation_forest(ds.X_train)
     print("Isolation Forest:", evaluate(model, ds.X_test, ds.y_test))

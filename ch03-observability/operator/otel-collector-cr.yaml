@@ -37,8 +37,21 @@ spec:
         send_batch_size: 8192
         timeout: 5s
     exporters:
-      # Agents do not sample or fan out; they forward to the gateway so
-      # tail sampling sees every span of a trace in one place
+      # Agents do not sample. Traces are routed by trace ID, so every span
+      # of a trace reaches the same gateway replica and tail sampling sees
+      # the whole trace. The k8s resolver watches the gateway's endpoints,
+      # so every agent sees the same replica set (RBAC at the end of file).
+      loadbalancing:
+        routing_key: traceID
+        protocol:
+          otlp:
+            tls:
+              insecure: true
+        resolver:
+          k8s:
+            service: gateway-collector-headless.observability
+            ports: [4317]
+      # Metrics and logs need no trace affinity: any replica will do
       otlp/gateway:
         endpoint: gateway-collector:4317
         tls:
@@ -48,7 +61,7 @@ spec:
         traces:
           receivers: [otlp]
           processors: [memory_limiter, resourcedetection, batch]
-          exporters: [otlp/gateway]
+          exporters: [loadbalancing]
         metrics:
           receivers: [otlp]
           processors: [memory_limiter, resourcedetection, batch]
@@ -160,3 +173,29 @@ spec:
           receivers: [otlp]
           processors: [memory_limiter, resource, batch]
           exporters: [otlphttp/loki, awss3]
+---
+# The agent's loadbalancing exporter watches the gateway's Endpoints to learn
+# the replica set. The Operator runs the agent as the agent-collector account.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-endpoints-reader
+  namespace: observability
+rules:
+  - apiGroups: [""]
+    resources: [endpoints]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-endpoints-reader
+  namespace: observability
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: agent-endpoints-reader
+subjects:
+  - kind: ServiceAccount
+    name: agent-collector
+    namespace: observability

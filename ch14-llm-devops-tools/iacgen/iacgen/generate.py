@@ -107,7 +107,7 @@ def production_repair(module_src: str, findings):  # pragma: no cover - validati
 
         prompt = (
             "Here are the Checkov and Trivy findings for the Terraform you "
-            "wrote. Fix every HIGH/CRITICAL finding and return ONLY the "
+            "wrote. Fix every finding listed and return ONLY the "
             f"corrected module.\\n\\nMODULE:\\n{module_src}\\n\\nFINDINGS:\\n"
             + "\\n".join(f"{f.scanner} {f.rule_id} ({f.severity}): {f.title}"
                          for f in findings)

@@ -4,8 +4,9 @@ Two DAGs. The first runs the feature refresh on a daily clock but hashes the byt
 marks the asset updated only when they change, so identical data emits no event. The
 second is scheduled on that asset, so it runs when the data actually changes, not on a
 clock of its own. This is the data-aware model from Section 10.3 made runnable: the
-retrain triggers on a real asset update and registers a new anomaly-detector version
-into the Chapter 9 registry (tracking URI from MLFLOW_TRACKING_URI, sqlite by default).
+retrain triggers on a real asset update and, if the model clears the same 0.90 AUC
+baseline the Kubeflow pipeline gates on, registers a new anomaly-detector version into
+the Chapter 9 registry (tracking URI from MLFLOW_TRACKING_URI, sqlite by default).
 
 Airflow 3 moved the authoring surface to the Task SDK (airflow.sdk). Dataset is now Asset.
 """
@@ -15,6 +16,9 @@ from airflow.sdk import DAG, Asset, task
 
 # The addressable dataset. Its update is the trigger signal for the retrain DAG.
 features = Asset("file:///tmp/aiosp/features.parquet")
+
+# The registered baseline, the same one Listing 10-1's evaluate step gates on.
+BASELINE_AUC = 0.90
 
 
 with DAG(dag_id="refresh_features", schedule="@daily", catchup=False):
@@ -51,6 +55,7 @@ with DAG(dag_id="retrain_anomaly_detector", schedule=[features], catchup=False):
         import mlflow
         import mlflow.sklearn
         import pandas as pd
+        from airflow.sdk.exceptions import AirflowSkipException
         from sklearn.ensemble import IsolationForest
         from sklearn.metrics import roc_auc_score
         from sklearn.model_selection import train_test_split
@@ -63,6 +68,10 @@ with DAG(dag_id="retrain_anomaly_detector", schedule=[features], catchup=False):
         )
         clf = IsolationForest(n_estimators=100, contamination=0.1, random_state=42).fit(X_train)
         auc = float(roc_auc_score(y_val, -clf.score_samples(X_val)))
+        # The same gate as Listing 10-1: register only when the model clears the
+        # baseline. Skipping marks the run visibly and writes nothing to the registry.
+        if auc < BASELINE_AUC:
+            raise AirflowSkipException(f"auc {auc:.3f} below baseline {BASELINE_AUC}")
         mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
         mlflow.set_experiment("aiosp-anomaly-detector")
         with mlflow.start_run():

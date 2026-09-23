@@ -37,9 +37,12 @@ import pandas as pd
 # (service_name, window_start):
 #   service_name    str       emitting service
 #   window_start    datetime  left edge of the window, UTC
-#   <feature>_mean  float     mean of each feature over the window
-#   <feature>_p95   float     95th percentile over the window
+#   <feature>_mean  float     mean of the feature's per-interval values
+#   <feature>_p95   float     95th percentile of those per-interval values,
+#                             NOT the p95 of individual requests
 #   sample_count    int       raw points in the window
+# Each point is one spanmetrics flush interval: request_latency_ms is that
+# interval's average latency, and the counts are that interval's totals.
 #   label           int       0 = nominal, 1 = injected-fault window
 
 # Metric names as they land in the lake, mapped to feature-column names.

@@ -37,7 +37,7 @@ aiosp/
   convergence.py  the convergence check (Listing 17-4)
   cost.py         token-to-cost helper (custom app.gen_ai.cost_usd attribute)
 labs/             lab1 (unified trace), lab2 (convergence)
-tests/            convergence + tracing tests, incl. a negative convergence test
+tests/            convergence + tracing tests, incl. five negative convergence tests
 setup.sh          stand AIOSP up on a local kind cluster (NOT run in CI;
                   needs your own fork of the platform tree, see below)
 run_smoke.py      convergence check + unified trace, asserts both
@@ -101,7 +101,9 @@ yamllint over the GitOps manifests; the convergence check (asserts the shared
 serving API, the shared Argo delivery loop, and the shared OTLP endpoint, with
 predictive AND generative formats present); the unified trace (asserts the infra
 and gen_ai spans share one trace, with token usage and a computed cost); and a
-negative test that the convergence check FAILS when a workload diverges.
+five negative tests that the convergence check FAILS when a workload diverges: a divergent
+observability endpoint, serving API, or delivery repo, an extra workload, and a workload with
+no matching Argo CD Application.
 
 Validation-only, NOT executed (needs a real cluster and, for the LLM, a GPU):
 `setup.sh` (stands AIOSP up on kind after the one-time fork-and-substitute above:
@@ -115,5 +117,5 @@ in CI; the live deploy is local. Same honesty split as Chapters 11, 13, and 16.
 Python 3.12; opentelemetry-api/sdk 1.42.1, opentelemetry-semantic-conventions
 0.63b1 (matching Chapter 13), PyYAML 6.0.2, pytest 8.4.2, ruff 0.9.10, yamllint
 1.35.1. The platform tools referenced in `setup.sh` and the manifests are pinned
-to their mid-2026 lines: kind v0.32.0, Argo CD 3.4.4, KServe 0.18.0, Backstage
+to their mid-2026 lines: kind v0.32.0, Argo CD 3.4.4, KServe 0.19.0, Backstage
 Helm chart 2.8.2. Re-verify these at copyedit; CNCF tooling moves fast.

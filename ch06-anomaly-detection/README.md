@@ -6,7 +6,7 @@ honestly, and serve the chosen detector into the Chapter 5 loop.
 
 | Listing | File | What it is |
 |---|---|---|
-| Listing 6-1 | `pipeline/data.py` | Load the parquet feature table and make a leakage-safe, normal-only split |
+| Listing 6-1 | `pipeline/data.py` | Load the parquet feature table and make a normal-only split that can hold out whole fault runs or time blocks |
 | Listing 6-2 | `pipeline/isoforest.py` | Isolation Forest baseline, with the two scikit-learn sign conventions handled |
 | Listing 6-3 | `pipeline/deep_models.py` | Transformer autoencoder, the reconstruction-collapse guard, and DAGMM density scoring |
 | Listing 6-4 | `pipeline/evaluate.py` | Evaluation harness: AUC gate, predict-all floor, prevalence sweep |

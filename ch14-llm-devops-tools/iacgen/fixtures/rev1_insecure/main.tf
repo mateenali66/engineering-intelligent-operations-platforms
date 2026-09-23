@@ -7,13 +7,13 @@
 # over it (Checkov 3.3.1, Trivy 0.71.1) are real.
 #
 # It is the exact failure Chapter 4 and Chapter 14 warn about: the prompt asked
-# for a "secure" bucket and the model produced a world-readable, unencrypted,
+# for a "secure" bucket and the model produced a public-read, non-KMS-encrypted,
 # unversioned, unlogged bucket. DO NOT APPLY.
 #
 # Defects, on purpose:
 #   - acl = "public-read"                  (world-readable)
 #   - no aws_s3_bucket_public_access_block (nothing blocks public access)
-#   - no server-side encryption config     (objects unencrypted at rest)
+#   - no server-side encryption config     (no KMS key; default SSE-S3 only)
 #   - no versioning                        (no object recovery)
 #   - no access logging                    (no audit trail)
 

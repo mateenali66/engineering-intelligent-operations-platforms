@@ -5,8 +5,8 @@ Runs the bounded generate-scan-repair loop end to end with the REAL scanners
 (Conftest 0.68.2) over the recorded fixtures, and asserts the outcomes the
 chapter teaches:
 
-  1. the loop STARTS with HIGH/CRITICAL findings (the recorded insecure module),
-  2. it CONVERGES to 0 HIGH/CRITICAL within the retry budget,
+  1. the loop STARTS with blocking findings (the recorded insecure module),
+  2. it CONVERGES to 0 blocking within the retry budget,
   3. the OPA gate PASSES on the converged module,
   4. the emitted SARIF 2.1.0 is well-formed,
   5. (degradation illustration) an UNCAPPED loop's blocking count RISES while a
@@ -40,18 +40,18 @@ def main() -> None:
         outcome = run_loop(prompt, workdir, max_passes=3,
                            emit_sarif_to=sarif_path)
 
-        # 1. Starts with HIGH/CRITICAL findings.
+        # 1. Starts with blocking findings.
         first = outcome.passes[0]
-        print(f"loop pass 1: {first.blocking_count} HIGH/CRITICAL "
+        print(f"loop pass 1: {first.blocking_count} blocking "
               f"({first.total_count} total)")
         assert first.blocking_count > 0, \
-            "the recorded insecure module must start with HIGH/CRITICAL findings"
+            "the recorded insecure module must start with blocking findings"
 
         # 2. Converges to 0 within the budget.
         last = outcome.passes[-1]
-        print(f"loop final pass {last.index}: {last.blocking_count} HIGH/CRITICAL")
+        print(f"loop final pass {last.index}: {last.blocking_count} blocking")
         assert outcome.converged, "the loop must converge within the budget"
-        assert last.blocking_count == 0, "the converged module must have 0 HIGH/CRITICAL"
+        assert last.blocking_count == 0, "the converged module must have 0 blocking"
         assert len(outcome.passes) <= 3, "must converge within the 3-pass budget"
 
         # 3. OPA gate passes on the converged module.

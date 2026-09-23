@@ -5,21 +5,26 @@ Conceptual chapter. Two small, runnable artifacts make the "decide" and
 
 | Listing | File | What it is |
 |---|---|---|
-| Listing 5-1 | `decision/decide.py` | Confidence-gated decision step. Automates an action only when the diagnosis is confident and the action is reversible; everything else escalates to a human. |
-| Listing 5-2 | `remediation/restart-deployment.yaml` | An Argo Workflows template for a bounded, safe-tier remediation (restart one named deployment). |
+| Listing 5-1 | `decision/decide.py` | Confidence-gated decision step. Automates an action only when the diagnosis is confident, its risk tier is on an explicit allowlist, and its live-state preconditions hold; everything else, including an unknown tier, escalates to a human. |
+| Listing 5-2 | `remediation/restart-deployment.yaml` | An Argo Workflows template for a bounded, safe-tier remediation: restart one named deployment, verify the rollout, and page on-call from the exit handler if it fails. |
+| (support) | `remediation/rbac.yaml` | The least-privilege service account and roles the runbook runs as. |
 
 ## Run it
 
 ```bash
-# Decision gate: runs an in-file assertion suite over the four cases.
+# Decision gate: runs an in-file assertion suite, including the
+# fail-closed cases (unknown tiers, failed or missing preconditions).
 python decision/decide.py
 # -> ENQUEUE: restart-deployment
 #    PAGE: low-confidence diagnosis | ...
-#    PAGE: action requires human approval | ...
+#    PAGE: tier not approved to auto-run | ...   (six times)
+#    PAGE: preconditions not met | ...           (twice)
 #    ok
 
-# Remediation runbook: validate the manifest (requires a cluster with Argo).
-kubectl apply --dry-run=client -f remediation/restart-deployment.yaml
+# Remediation runbook: install the RBAC and the template (needs a cluster
+# with Argo Workflows; tested on kind with Argo Workflows v4.1.4).
+kubectl apply -f remediation/rbac.yaml
+kubectl apply -f remediation/restart-deployment.yaml
 ```
 
 `decide.py` is standard-library only and self-contained. It also ships

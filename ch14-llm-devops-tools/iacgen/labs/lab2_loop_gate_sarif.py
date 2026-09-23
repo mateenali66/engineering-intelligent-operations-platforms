@@ -1,14 +1,14 @@
 """Listing 14-2 (RUNS IN CI): bounded generate-scan-repair loop + OPA gate + SARIF.
 
 Wraps Lab 1 in a bounded loop:
-  generate() -> scan -> if HIGH/CRITICAL and budget remains: repair() -> re-scan
+  generate() -> scan -> if blocking and budget remains: repair() -> re-scan
 The repair() step is a STUBBED LLM that returns the NEXT recorded revision
 (rev2_hardened). The scanners (Checkov, Trivy) and the OPA/Conftest gate run for
 REAL. After convergence the loop runs the Chapter 4 s3_encryption.rego policy
 against the recorded plan JSON, then emits a merged SARIF 2.1.0 report for GitHub
 code scanning.
 
-Expected trace: pass 1 has HIGH/CRITICAL -> repair -> pass 2 has 0 -> gate PASS.
+Expected trace: pass 1 has blocking -> repair -> pass 2 has 0 -> gate PASS.
 
 Run:
     python labs/lab2_loop_gate_sarif.py

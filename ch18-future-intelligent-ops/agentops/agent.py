@@ -31,24 +31,33 @@ class RemediationAgent:
     def handle(self, anomaly: Anomaly) -> list[PullRequest]:
         """Investigate the anomaly and open a diagnosis PR and a remediation PR.
 
-        Returns the two PRs, both AWAITING_APPROVAL. Raises GuardianPaused if the
-        red button is engaged, so no PR is opened at all while the platform is held.
+        Returns the PRs, all AWAITING_APPROVAL. Raises GuardianPaused if the red
+        button is engaged, so no PR is opened at all while the platform is held.
+        With no safe rollback target it opens the diagnosis PR only.
         """
         self.guardian.assert_clear()
 
         # Monitor and investigate (L1 capability): a deterministic diagnosis stands
-        # in for the model's reasoning. The roll-forward revision is the suspect one.
-        rollback_to = anomaly.suspect_revision - 1
+        # in for the model's reasoning. The target is not "suspect minus one": it
+        # is the newest earlier revision the deploy log recorded as healthy on the
+        # schema the service runs today, so the rollback is known good and
+        # compatible with current data.
+        rollback_to = rollback_target(anomaly)
+        found = (f"the last healthy revision on the current schema is {rollback_to}."
+                 if rollback_to is not None else
+                 "no earlier revision is both healthy and on the current schema, "
+                 "so no rollback is proposed; a human decides the fix.")
         diagnosis = PullRequest(
             kind="diagnosis",
             title=f"Diagnosis: {anomaly.service} regression after r{anomaly.suspect_revision}",
             body=(
                 f"{anomaly.summary} The regression begins at revision "
-                f"{anomaly.suspect_revision}; the prior good revision is "
-                f"{rollback_to}."
+                f"{anomaly.suspect_revision}; {found}"
             ),
             author=self.identity,
         )
+        if rollback_to is None:
+            return [diagnosis]
 
         # Propose an actuation (L2 capability) as a GitOps change. The agent opens
         # the PR; it does not and cannot merge or apply it.
@@ -63,3 +72,11 @@ class RemediationAgent:
             change={"service": anomaly.service, "revision": rollback_to},
         )
         return [diagnosis, remediation]
+
+
+def rollback_target(anomaly: Anomaly) -> int | None:
+    """The newest revision before the suspect that ran healthy on today's schema."""
+    candidates = [d.revision for d in anomaly.history
+                  if d.revision < anomaly.suspect_revision
+                  and d.healthy and d.schema_version == anomaly.schema_version]
+    return max(candidates, default=None)

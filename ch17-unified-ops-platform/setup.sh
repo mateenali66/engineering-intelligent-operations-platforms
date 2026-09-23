@@ -11,7 +11,7 @@
 # you can commit and push the rewrite; the second run brings the cluster up.
 #
 # Versions pinned to the mid-2026 lines verified for the chapter:
-#   kind v0.32.0, Argo CD 3.4.4, KServe 0.18.0, Backstage Helm chart 2.8.2.
+#   kind v0.32.0, Argo CD 3.4.4, KServe 0.19.0, Backstage Helm chart 2.8.2.
 set -euo pipefail
 
 PLACEHOLDER="https://github.com/YOUR-USERNAME/aiosp-platform.git"
@@ -53,7 +53,7 @@ kubectl wait --for=condition=available --timeout=300s \
 
 # 3. KServe: the serving substrate (predictive AND generative).
 curl -sL -o /tmp/kserve-install.sh \
-  https://github.com/kserve/kserve/releases/download/v0.18.0/kserve-standard-mode-full-install-with-manifests.sh
+  https://github.com/kserve/kserve/releases/download/v0.19.0/kserve-standard-mode-full-install-with-manifests.sh
 bash /tmp/kserve-install.sh
 
 # 4. The OpenTelemetry Collector: the observability substrate.

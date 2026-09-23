@@ -1,5 +1,12 @@
+# Install Airflow with its official constraints first, then these pins:
+#   pip install "apache-airflow==3.2.2" --constraint \
+#     https://raw.githubusercontent.com/apache/airflow/constraints-3.2.2/constraints-3.12.txt
+#   pip install -r requirements.txt
+# Without the constraints, pip pulls newer web-framework packages that parse DAGs
+# but fail when a task runs.
 apache-airflow==3.2.2
 mlflow==3.14.0
+skops==0.14.0  # mlflow dependency; 0.15.0 rejects sklearn tree types on save
 scikit-learn==1.9.0
 pandas==2.3.3
 pyarrow==24.0.0

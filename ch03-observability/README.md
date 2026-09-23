@@ -45,7 +45,11 @@ table Chapter 6 trains on.
 - `awss3` is the real contrib exporter with its `s3uploader` block. Verify it in
   the contrib distribution for the version you pin before deploying.
 - `tail_sampling` is stateful: it must see every span of a trace, so it lives on
-  the gateway tier (Listing 3-1), never on the per-node agents.
+  the gateway tier (Listing 3-1), never on the per-node agents. The gateway runs
+  two replicas, so the agents send traces through the `loadbalancing` exporter,
+  which hashes the trace ID to pick a replica. Its `k8s` resolver watches the
+  gateway's headless Service, which needs the Role at the end of the CR file.
+  Metrics and logs go through the ordinary `gateway-collector` Service.
 - The `spanmetrics` connector hangs off the UNSAMPLED `traces/lake` pipeline, so
   its rates are true rates, and it emits `traces.span.metrics.calls` and the
   `traces.span.metrics.duration` histogram (dimensions include `status.code`,
@@ -70,12 +74,25 @@ to turn the awss3 OTLP-protobuf objects into flat parquet, run
 per-column coverage lines it prints, and inspect the resulting feature table.
 Chapter 6 picks up exactly that table.
 
+## Test trace affinity
+
+`operator/trace-affinity-test/run.sh` checks that every span of a trace reaches
+the same gateway replica. It creates a three-node kind cluster, installs
+cert-manager v1.21.2 and Operator v0.135.0, applies the agent resource and its
+Role from this directory unchanged, and deploys a two-replica gateway test
+double that logs what it receives. It sends 40 traces whose spans are split
+across the two agents and fails if any trace reaches more than one replica. It
+then scales the gateway to three replicas and repeats the check as soon as the
+new pod is Ready. Needs docker, kind, kubectl, and python3 with PyYAML, takes
+about five minutes, and deletes the cluster on exit.
+
 If nothing appears:
 
 1. Check the agent pods' logs for export errors (`kubectl logs -n observability
    ds/agent-collector`). "connection refused" to `gateway-collector:4317` means
    the gateway Service is missing or misnamed; the operator names each
-   Collector's Service `<name>-collector`.
+   Collector's Service `<name>-collector`. A `forbidden` error on `endpoints`
+   means the agent's Role at the end of the CR file was not applied.
 2. Confirm the demo's `OTEL_EXPORTER_OTLP_ENDPOINT` points at the agent
    service (gRPC 4317 or HTTP 4318), not at the demo's own bundled collector.
 3. Confirm the pods run the CONTRIB image at the pinned version. The core image

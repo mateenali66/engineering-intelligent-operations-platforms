@@ -1,0 +1,26 @@
+# Test double for the gateway: same mode, replicas, and image as the repo
+# resource, with a debug exporter so each replica logs the traces it received.
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: gateway
+  namespace: observability
+spec:
+  mode: deployment
+  replicas: 2
+  image: otel/opentelemetry-collector-contrib:0.135.0
+  config:
+    receivers:
+      otlp:
+        protocols:
+          grpc: {endpoint: 0.0.0.0:4317}
+          http: {endpoint: 0.0.0.0:4318}
+    processors:
+      batch: {timeout: 1s}
+    exporters:
+      debug: {verbosity: detailed}
+    service:
+      pipelines:
+        traces: {receivers: [otlp], processors: [batch], exporters: [debug]}
+        metrics: {receivers: [otlp], processors: [batch], exporters: [debug]}
+        logs: {receivers: [otlp], processors: [batch], exporters: [debug]}

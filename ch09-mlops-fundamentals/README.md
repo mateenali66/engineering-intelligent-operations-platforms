@@ -8,8 +8,9 @@ the lifecycle of the Part II models.
 | Listing | File | What it is |
 |---|---|---|
 | Listing 9-1 | `version-data.sh` | Version a dataset with DVC, backed by a local remote (swap for MinIO or S3 in production); calls `generate_data.py` to produce the dataset |
-| Listing 9-2 | `train.py` | Train the Chapter 6 detector on a training split, score AUC on a held-out slice, log to MLflow 3, and register it as `anomaly-detector` |
+| Listing 9-2 | `train.py` | Train the Chapter 6 detector on the DVC-tracked `data/telemetry.csv`, tag the run with its `dataset.md5` (the hash in the `.dvc` pointer), score AUC on a held-out slice, log to MLflow 3, and register it as `anomaly-detector` |
 | Listing 9-3 | `.github/workflows/model-validation-gate.yml` | A GitHub Actions gate that blocks promotion on a metric regression (runs `produce_metrics.py`, then `scripts/validate_metric.py`) |
+| (Table 9-4) | `promote.py` | Run by the model-quality approver after the gate passes: points `anomaly-detector@production` at the version and tags it `approved_by`. `run_smoke.py` walks the whole trail from the alias back to the dataset hash |
 
 ## Run it
 

@@ -41,9 +41,9 @@ import pandas as pd
 #   <feature>_p95   float     95th percentile of those per-interval values,
 #                             NOT the p95 of individual requests
 #   sample_count    int       raw points in the window
+#   label           int       0 = nominal, 1 = injected-fault window
 # Each point is one spanmetrics flush interval: request_latency_ms is that
 # interval's average latency, and the counts are that interval's totals.
-#   label           int       0 = nominal, 1 = injected-fault window
 
 # Metric names as they land in the lake, mapped to feature-column names.
 # The left-hand names are what the spanmetrics connector in Listing 3-2

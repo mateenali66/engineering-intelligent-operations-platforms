@@ -160,10 +160,10 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - `ch07-finops-aiops/requirements.txt` and the CI install step: numpy 2.4.6, pandas 2.3.3, scikit-learn 1.9.0, statsmodels 0.14.6.
 - **What CI runs**
   - ruff, `py_compile` on every `.py` file, then `run_smoke.py`. It ingests synthetic FOCUS billing, flags the spend spike with the Chapter 6 detector and forecasts with SARIMAX.
-  - `right_size` sizes the next 7 days from the forecast's 80% upper bound under a 75% utilization ceiling and caps a cut at 25% (`pipeline/forecast.py`). The smoke test asserts the action is `hold`, then exercises the `downsize` and `scale up` branches on the same forecast.
+  - `right_size` sizes the next 7 days from the forecast's 80% upper bound under a 75% utilization ceiling and caps a cut at 25% (`pipeline/forecast.py`). The smoke test asserts the action is `hold`, then exercises the `downsize` and `scale up` branches on the same forecast. It also runs `pipeline/backtest.py`, which refits weekly once it has 28 days of history and counts how often actual spend exceeded the one-week 80% upper bound (14 of 85 normal days on this data).
   - The business case is an explicitly illustrative 20% cut. The cut, implementation cost and run cost are assumptions, not model output (`run_smoke.py`, README). The smoke test asserts a finite payback.
 - **Expected output**
-  - Lines starting `daily spend:`, `flagged ... spend-anomaly days`, `14-day forecast mean`, `right-sizing:`, `business case (illustrative 20% cut):`, `cost per transaction $`, then `smoke: ok`.
+  - Lines starting `daily spend:`, `flagged ... spend-anomaly days`, `14-day forecast mean`, `right-sizing:`, `backtest: actual above the one-week 80% upper bound on 14 of 85 normal days (16%)`, `business case (illustrative 20% cut):`, `cost per transaction $`, then `smoke: ok`.
 - **Fixtures**
   - `pipeline/make_billing.py` generates a synthetic FOCUS billing export with an injected spend spike.
 - **Not run in CI**
@@ -201,13 +201,13 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - CI installs mlflow 3.14.0, skops 0.14.0, scikit-learn 1.9.0 and numpy 2.4.6, then `dvc==3.67.1` (without the `[s3]` extra) for the DVC step.
   - `.github/workflows/model-validation-gate.yml` pins `actions/checkout@v7.0.1`, `actions/setup-python@v7.0.0` and Python 3.12.
 - **What CI runs**
-  - ruff, `py_compile`, then `run_smoke.py`. It trains the detector, registers it to a SQLite-backed MLflow 3 registry, confirms the version exists, and runs `scripts/validate_metric.py` on a passing and a regressing metric.
+  - ruff, `py_compile`, then `run_smoke.py`. It trains the detector on the DVC-tracked `data/telemetry.csv` and tags the run with `dataset.md5`, registers it to a SQLite-backed MLflow 3 registry, confirms the version exists, and runs `scripts/validate_metric.py` on a passing and a regressing metric. It then promotes the version with `promote.py` and walks the trail from `@production` back to the dataset hash (Table 9-4).
   - It copies the chapter to a temp dir, makes a throwaway Git repo, and runs `version-data.sh` (Listing 9-1) against its local-directory remote. It asserts `data/telemetry.csv.dvc` exists and that `dvc status --cloud` reports the data in sync.
 - **Expected output**
-  - `trained and registered, auc=...`, `registry has anomaly-detector v1`, `validation gate: passes on hold, blocks on regression`, then `smoke: ok`.
+  - `trained and registered, auc=...`, `registry has anomaly-detector v1`, `validation gate: passes on hold, blocks on regression`, `trail: dataset md5 -> run ... -> v1 -> @production (approved by model-quality owner)`, then `smoke: ok`.
   - `dvc listing: ok` (DVC step).
 - **Fixtures**
-  - `generate_data.py` writes a synthetic `data/telemetry.csv` from a fixed seed.
+  - `generate_data.py` writes a synthetic `data/telemetry.csv` from a fixed seed. `train.py` calls it when the file is missing. The file's md5 equals the md5 in the DVC pointer.
 - **Not run in CI**
   - The production MinIO or S3 remote for `version-data.sh` is not exercised. CI uses the local-directory remote at `/tmp/aiosp-dvcstore` (README, script comments).
   - `.github/workflows/model-validation-gate.yml` (Listing 9-3) sits in a chapter subdirectory, so GitHub does not execute it. CI runs its validation script through the smoke test instead.
@@ -226,7 +226,7 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - `lab4-dvc/requirements.txt`: dvc 3.67.1, scikit-learn 1.9.0, pandas 2.3.3, pyarrow 24.0.0, numpy 2.4.6.
 - **What CI runs**
   - `ch10-kfp` runs ruff, `python pipeline.py`, then asserts the IR has `components`, `deploymentSpec`, `root`, `schemaVersion` and `sdkVersion`, with `schemaVersion` 2.1.0.
-  - `ch10-airflow` runs ruff, `parse_check.py` (DagBag parse), then `run_dags.sh`.
+  - `ch10-airflow` runs ruff, `parse_check.py` (DagBag parse), then `run_dags.sh`, which runs the retrain twice on the same features and requires exactly one version (Listing 10-2 is idempotent under retries), then changes one feature value and requires a second version.
   - `ch10-zenml` runs ruff, then `python pipeline.py` on the default local stack with analytics off and a temp config path.
   - `ch10-dvc` runs ruff, copies the lab to a temp dir, runs `git init` and `dvc init`, runs `dvc repro` twice, and greps the second run for `didn't change, skipping`.
 - **Expected output**
@@ -238,7 +238,7 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - No Kubeflow cluster, Airflow scheduler, cloud or GPU (README CI section).
   - The ZenML stack swap to a second orchestrator is shown as CLI only (ci.yml comment).
 - **Local tests outside CI**
-  - `lab2-airflow/run_dags.sh` also runs in CI. Its header says it runs both DAGs with no scheduler in a temp `AIRFLOW_HOME`, gates on the 0.90 AUC baseline, and fails unless a version above the baseline is registered.
+  - `lab2-airflow/run_dags.sh` also runs in CI. It runs both DAGs with no scheduler in a temp `AIRFLOW_HOME`, gates on the 0.90 AUC baseline, runs the retrain a second time on the same features and requires one version, then changes one feature value and requires a second version above the baseline.
   - The ZenML stack-swap commands and the "edit train.py, rerun dvc repro" step in the README.
 
 ## Chapter 11: Model Serving and Inference at Scale

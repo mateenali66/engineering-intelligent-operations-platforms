@@ -48,8 +48,9 @@ with DAG(dag_id="refresh_features", schedule="@daily", catchup=False):
 
 
 with DAG(dag_id="retrain_anomaly_detector", schedule=[features], catchup=False):  # event-driven
-    @task
+    @task(retries=2)
     def train_and_register():
+        import hashlib
         import os
 
         import mlflow
@@ -60,6 +61,17 @@ with DAG(dag_id="retrain_anomaly_detector", schedule=[features], catchup=False):
         from sklearn.metrics import roc_auc_score
         from sklearn.model_selection import train_test_split
         df = pd.read_parquet("/tmp/aiosp/features.parquet")
+        # The producer's content hash identifies this exact input.
+        digest = hashlib.sha256(pd.util.hash_pandas_object(df).values.tobytes()).hexdigest()
+        mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
+        exp = mlflow.set_experiment("aiosp-anomaly-detector")
+        client = mlflow.MlflowClient()
+        # Idempotent retry: if a registered version already came from a run on these
+        # exact features, an earlier attempt finished before the task was marked done.
+        runs = client.search_runs([exp.experiment_id], f"tags.features_sha256 = '{digest}'")
+        done = {r.info.run_id for r in runs}
+        if any(v.run_id in done for v in client.search_model_versions("name='anomaly-detector'")):
+            raise AirflowSkipException("already registered for these features")
         y = df.pop("label").to_numpy()
         X = df.to_numpy()
         # Held-out split, the same one Chapter 9 registered on; never score the gate on training rows.
@@ -72,9 +84,9 @@ with DAG(dag_id="retrain_anomaly_detector", schedule=[features], catchup=False):
         # baseline. Skipping marks the run visibly and writes nothing to the registry.
         if auc < BASELINE_AUC:
             raise AirflowSkipException(f"auc {auc:.3f} below baseline {BASELINE_AUC}")
-        mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
-        mlflow.set_experiment("aiosp-anomaly-detector")
-        with mlflow.start_run():
+        # Tag the run before registering, so a crash after registration is visible
+        # to the check above on the next attempt.
+        with mlflow.start_run(tags={"features_sha256": digest}):
             mlflow.log_metric("auc", auc)
             mlflow.sklearn.log_model(sk_model=clf, name="model",
                                      registered_model_name="anomaly-detector")

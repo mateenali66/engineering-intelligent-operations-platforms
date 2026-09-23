@@ -8,6 +8,7 @@ Chapter 10 builds on, so the registry has to actually work, not just illustrate.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -16,6 +17,7 @@ import sys
 import mlflow
 from mlflow import MlflowClient
 
+import promote
 import train
 
 
@@ -52,6 +54,19 @@ def main():
     write_metrics(current_auc=0.80, baseline_auc=0.94)
     assert gate_exit_code() == 1, "gate should block a metric regression"
     print("validation gate: passes on hold, blocks on regression")
+
+    # The trail, end to end: the run carries the dataset md5, the version comes
+    # from that run, and promotion sets the alias and records the approver.
+    latest = max(versions, key=lambda v: int(v.version))
+    run = client.get_run(latest.run_id)
+    with open(train.DATASET, "rb") as f:
+        assert run.data.tags["dataset.md5"] == hashlib.md5(f.read()).hexdigest()
+    promote.promote(latest.version, "model-quality owner")
+    prod = client.get_model_version_by_alias("anomaly-detector", "production")
+    assert prod.version == latest.version
+    assert prod.tags["approved_by"] == "model-quality owner"
+    print(f"trail: dataset md5 -> run {latest.run_id[:8]} -> v{prod.version} "
+          f"-> @production (approved by {prod.tags['approved_by']})")
     print("smoke: ok")
 
 

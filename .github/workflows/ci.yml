@@ -54,10 +54,10 @@ jobs:
     name: YAML lint
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -154,10 +154,10 @@ jobs:
     name: ch03 Python lint and compile
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -206,10 +206,10 @@ jobs:
     name: ch05 Python lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -237,10 +237,10 @@ jobs:
     name: ch06 anomaly-detection lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -286,10 +286,10 @@ jobs:
     name: ch07 FinOps pipeline lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -328,10 +328,10 @@ jobs:
     name: ch08 chaos flywheel lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -371,10 +371,10 @@ jobs:
     name: ch09 MLOps lab lint and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -413,10 +413,10 @@ jobs:
     name: ch10 KFP compile
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -450,10 +450,10 @@ jobs:
     name: ch10 Airflow DAG parse and run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -490,10 +490,10 @@ jobs:
     name: ch10 ZenML run
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -524,10 +524,10 @@ jobs:
     name: ch10 DVC caching
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -568,10 +568,10 @@ jobs:
     name: ch11 serving (MLServer V2 + load test)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -626,10 +626,10 @@ jobs:
     name: ch12 monitoring (NannyML + Evidently + River)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -704,10 +704,10 @@ jobs:
     name: ch13 LLMOps (GenAI span + eval gate)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.14
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.14"
 
@@ -789,10 +789,10 @@ jobs:
       run:
         working-directory: ch14-llm-devops-tools/iacgen
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.14
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.14"
 
@@ -875,14 +875,14 @@ jobs:
       # only upload when public and always keep the SARIF as a build artifact.
       - name: Upload SARIF to GitHub code scanning
         if: ${{ !github.event.repository.private }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: ch14-llm-devops-tools/iacgen/iacgen.sarif
           category: ch14-iacgen
 
       - name: Archive the SARIF as a build artifact
         if: always()
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ch14-iacgen-sarif
           path: ch14-llm-devops-tools/iacgen/iacgen.sarif
@@ -902,10 +902,10 @@ jobs:
     name: IaC scan, clean-module (must pass)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -944,10 +944,10 @@ jobs:
     name: IaC scan, generated-module (NON-GATING, must find issues)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -1004,7 +1004,7 @@ jobs:
     name: OPA/Conftest policy tests
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Install Conftest 0.68.2
         run: |
@@ -1073,10 +1073,10 @@ jobs:
       TOKENIZERS_PARALLELISM: "false"
 
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -1086,7 +1086,7 @@ jobs:
       # Cache the embedding + reranker model downloads so the job is fast after
       # the first run (MiniLM ~90MB to HF cache; FlashRank TinyBERT ~3.3MB).
       - name: Cache models
-        uses: actions/cache@v4.2.4
+        uses: actions/cache@v6.1.0
         with:
           path: |
             ~/.cache/huggingface
@@ -1137,10 +1137,10 @@ jobs:
     name: ch16 guardrails (proxy + attack harness)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -1195,10 +1195,10 @@ jobs:
     name: ch17 Unified Platform (convergence + unified trace)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 
@@ -1261,10 +1261,10 @@ jobs:
     name: ch18 Future (agent control plane)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5.3.0
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.12"
 

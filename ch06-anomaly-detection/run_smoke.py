@@ -12,8 +12,9 @@ from __future__ import annotations
 import os
 
 import joblib
+import numpy as np
 
-from pipeline.data import leakage_safe_split, load_feature_table
+from pipeline.data import load_feature_table, normal_only_split, time_blocks
 from pipeline.deep_models import (
     DAGMM, AutoEncoder, DeepSVDD, TransformerAE, auc_guarding_inversion,
     dagmm_energy_score, deep_svdd_score, reconstruction_score,
@@ -29,7 +30,7 @@ def main():
     os.makedirs("data", exist_ok=True)
     make_feature_table().to_parquet("data/features.parquet", index=False)
     X, y, names = load_feature_table("data/features.parquet")
-    ds = leakage_safe_split(X, y, names)
+    ds = normal_only_split(X, y, names)
     print(f"features={len(names)} train={ds.X_train.shape} "
           f"test={ds.X_test.shape} prevalence={ds.y_test.mean():.0%}")
 
@@ -71,6 +72,20 @@ def main():
 
     # The evaluation trap: F1 falls as anomalies get rarer.
     print("dagmm prevalence sweep:", prevalence_sweep(dg_scores, ds.y_test))
+
+    # The deployment-shaped protocol: hold out the latest one-hour blocks and
+    # train on normal windows from earlier blocks only. On real telemetry,
+    # where neighbouring windows are correlated, this is the number to trust.
+    blocks = time_blocks("data/features.parquet")
+    held = normal_only_split(X, y, names, groups=blocks, chronological=True)
+    ids = np.unique(blocks)
+    n_held = max(1, int(len(ids) * 0.3))
+    assert len(held.X_test) == int((blocks >= ids[-n_held]).sum()), \
+        "the held-out rows must be exactly the latest whole blocks"
+    held_res = evaluate(fit_isolation_forest(held.X_train), held.X_test, held.y_test)
+    print(f"isolation_forest, latest {n_held} of {len(ids)} hourly blocks "
+          f"held out: {held_res}")
+    assert held_res["auc"] > 0.5, "IF should separate anomalies in later blocks"
 
     # Persist the deployable detector (the cheap, robust Isolation Forest) with
     # its scaler and column order, so serving/score_service.py can load it.

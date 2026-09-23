@@ -47,11 +47,37 @@ def run_gate(plan_json: str | Path, policy_dir: str | Path = POLICY_DIR) -> Gate
          "--policy", str(policy_dir), "--output", "json"],
         capture_output=True, text=True, check=False,
     )
-    # Conftest exits non-zero on a policy failure; parse JSON either way.
+    # Conftest exits 1 on a policy failure; parse JSON either way. Fail closed:
+    # any other exit code, unreadable output, or a non-zero exit with no
+    # recorded failure means the policy was not evaluated, so the gate fails.
     failures: list[str] = []
     out = proc.stdout.strip()
-    if out:
-        for block in json.loads(out):
+    try:
+        for block in json.loads(out) if out else []:
             for f in block.get("failures", []):
                 failures.append(f.get("msg", ""))
+    except json.JSONDecodeError:
+        return GateResult(passed=False, failures=["conftest output was not JSON"])
+    if proc.returncode not in (0, 1) or (proc.returncode == 1 and not failures):
+        return GateResult(passed=False,
+                          failures=[f"conftest exited {proc.returncode}"])
+    if not out:
+        return GateResult(passed=False, failures=["conftest produced no output"])
     return GateResult(passed=(len(failures) == 0), failures=failures)
+
+
+def plan_summary(plan_json: str | Path) -> list[str]:
+    """One line per planned resource change, the diff a reviewer approves.
+
+    The scanners judge whether a module is safe; only the plan shows whether it
+    is the change that was asked for. In CI this reads the recorded fixture,
+    which is trimmed to the resources the policy checks; in production pass the
+    real `terraform show -json` output and every change appears.
+    """
+    data = json.loads(Path(plan_json).read_text())
+    lines = []
+    for change in data.get("resource_changes", []):
+        actions = "/".join(change.get("change", {}).get("actions", []))
+        lines.append(f"{actions:<8} {change.get('address', '?')}")
+    return lines
+

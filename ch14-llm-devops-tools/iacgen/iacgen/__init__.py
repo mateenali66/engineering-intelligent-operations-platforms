@@ -2,7 +2,8 @@
 
 The running example for Chapter 14. A CLI that takes a natural-language request,
 generates Terraform, scans it with multiple security scanners in parallel, runs
-a bounded generate-scan-repair loop, fails on HIGH/CRITICAL, and emits SARIF.
+a bounded generate-scan-repair loop, fails closed on blocking findings
+(HIGH, CRITICAL, or unranked) and scanner errors, and emits SARIF.
 
 Honest CI-vs-LLM split: the generate() and repair() steps are RECORDED FIXTURES
 (see fixtures/), not live model calls, so the lab runs headless in CI with no

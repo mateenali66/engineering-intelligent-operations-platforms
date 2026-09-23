@@ -840,6 +840,12 @@ jobs:
       - name: Install pytest 8.3.4
         run: pip install pytest==8.3.4
 
+      - name: Install ruff 0.9.10
+        run: pip install ruff==0.9.10
+
+      - name: Lint (ruff)
+        run: ruff check .
+
       - name: Install Trivy 0.71.1
         run: |
           curl -sfL \
@@ -884,6 +890,15 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/ch14-llm-devops-tools/iacgen
         run: python -m pytest tests/ -q
+
+      # The three lab scripts the chapter walks through, run as printed.
+      - name: Run the chapter labs (scan, loop and gate, degradation)
+        env:
+          PYTHONPATH: .
+        run: |
+          python labs/lab1_generate_scan.py
+          python labs/lab2_loop_gate_sarif.py
+          python labs/lab3_degradation.py
 
       # The OPA/Conftest gate via the CLI, the way the chapter shows it: the
       # recorded insecure plan is DENIED (shell negation asserts exit 1), the

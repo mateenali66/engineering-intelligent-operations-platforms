@@ -33,13 +33,14 @@ SARIF_SCHEMA = (
 )
 
 # SARIF result.level is one of error|warning|note|none. Map IaC severities onto
-# it so HIGH/CRITICAL surface as errors in GitHub code scanning.
+# it so every blocking finding (HIGH, CRITICAL, or unranked) surfaces as an
+# error in GitHub code scanning, matching what the loop blocks on.
 _LEVEL_BY_SEVERITY = {
     "CRITICAL": "error",
     "HIGH": "error",
     "MEDIUM": "warning",
     "LOW": "note",
-    "UNKNOWN": "warning",
+    "UNKNOWN": "error",
 }
 
 

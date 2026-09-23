@@ -31,7 +31,7 @@ SEQUENCE = gen.DEGRADATION_SEQUENCE
 
 
 def _scan_revision(fixture: str, tmp: Path) -> int:
-    """Materialize one recorded revision and return its real HIGH/CRITICAL count."""
+    """Materialize one recorded revision and return its real blocking count."""
     module = gen._materialize(fixture, tmp / fixture)
     result = scan_parallel(module)
     return len(result.blocking)
@@ -60,7 +60,7 @@ def run_capped(tmp: Path, max_passes: int = 1) -> list[tuple[str, int]]:
 def main() -> None:
     print("Listing 14-3: refinement-degradation paradox (DETERMINISTIC "
           "ILLUSTRATION).")
-    print("These are the real scanner HIGH/CRITICAL counts on recorded "
+    print("These are the real scanner blocking counts on recorded "
           "fixtures.")
     print("They illustrate Shukla et al.'s qualitative finding that unbounded")
     print("refinement can ADD vulnerabilities. They are NOT a reproduction of")
@@ -72,7 +72,7 @@ def main() -> None:
         print("UNCAPPED loop (no budget): chasing findings adds surface")
         uncapped = run_uncapped(tmp)
         for i, (fixture, blocking) in enumerate(uncapped, start=1):
-            print(f"  pass {i}: {blocking} HIGH/CRITICAL  [{fixture}]")
+            print(f"  pass {i}: {blocking} blocking  [{fixture}]")
         counts = [b for _, b in uncapped]
         print(f"  -> blocking count went {' -> '.join(str(c) for c in counts)} "
               f"(rising, never converges)\n")
@@ -80,7 +80,7 @@ def main() -> None:
         print("CAPPED loop (budget = 1 pass): stops at the rail")
         capped = run_capped(tmp, max_passes=1)
         for i, (fixture, blocking) in enumerate(capped, start=1):
-            print(f"  pass {i}: {blocking} HIGH/CRITICAL  [{fixture}]")
+            print(f"  pass {i}: {blocking} blocking  [{fixture}]")
         print("  -> budget exhausted; build FAILS on the non-clean module "
               "instead of looping into a worse one\n")
 

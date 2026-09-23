@@ -16,7 +16,8 @@ from iacgen import generate as gen
 from iacgen.loop import run_loop
 from iacgen.sarif import (native_checkov_sarif, native_trivy_sarif, to_sarif,
                           validate_sarif)
-from iacgen.scanners import scan_parallel
+from iacgen.gate import plan_summary, run_gate
+from iacgen.scanners import Finding, ScanResult, scan_parallel
 
 
 def test_lab1_insecure_module_has_high_findings():
@@ -32,7 +33,7 @@ def test_lab1_insecure_module_has_high_findings():
 
 
 def test_lab2_loop_converges_and_gate_passes():
-    """Listing 14-2: the bounded loop converges to 0 HIGH/CRITICAL, gate passes."""
+    """Listing 14-2: the bounded loop converges to 0 blocking findings, gate passes."""
     with tempfile.TemporaryDirectory() as tmp:
         outcome = run_loop("a secure S3 bucket module", Path(tmp) / "m",
                            max_passes=3, emit_sarif_to=Path(tmp) / "out.sarif")
@@ -83,3 +84,37 @@ def test_opa_gate_denies_insecure_passes_hardened():
     rev2_plan = gen.FIXTURES / "rev2_hardened" / "plan.json"
     assert not run_gate(rev1_plan).passed   # no SSE -> deny
     assert run_gate(rev2_plan).passed       # both buckets have SSE -> pass
+
+
+def test_unranked_finding_blocks():
+    # The open-source Checkov CLI reports no severity, so its findings arrive
+    # as UNKNOWN. A finding the tool cannot rank must block, not pass.
+    finding = Finding("checkov", "CKV_AWS_20", "public ACL", "UNKNOWN", "main.tf", 1)
+    assert ScanResult(findings=[finding]).has_blocking
+
+
+def test_broken_scanner_fails_closed(monkeypatch):
+    # A scanner that crashes or prints nothing has not shown the module is
+    # clean, so the scan must block, even on the hardened fixture.
+    monkeypatch.setenv("CHECKOV_BIN", "/usr/bin/false")
+    monkeypatch.setenv("TRIVY_BIN", "/usr/bin/false")
+    with tempfile.TemporaryDirectory() as tmp:
+        module = gen._materialize("rev2_hardened", tmp)
+        result = scan_parallel(module)
+    assert result.errors and result.has_blocking
+
+
+def test_broken_policy_engine_fails_gate(monkeypatch):
+    # If Conftest cannot run, the policy was not evaluated, so the gate fails.
+    monkeypatch.setenv("CONFTEST_BIN", "/usr/bin/false")
+    result = run_gate(Path(__file__).resolve().parent.parent
+                      / "fixtures" / "rev2_hardened" / "plan.json")
+    assert not result.passed
+
+
+def test_plan_summary_lists_the_planned_changes():
+    # The reviewer sees the diff next to the findings, one line per change.
+    lines = plan_summary(Path(__file__).resolve().parent.parent
+                         / "fixtures" / "rev2_hardened" / "plan.json")
+    assert "create   aws_s3_bucket.telemetry" in lines
+

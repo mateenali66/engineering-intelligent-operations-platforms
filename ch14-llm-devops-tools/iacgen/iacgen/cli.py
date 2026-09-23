@@ -5,7 +5,7 @@
 
 The generate/repair steps are stubbed recorded fixtures (no LLM key); the
 scanners and the gate run for real. Exit code is 0 when the loop converges to no
-HIGH/CRITICAL findings within the budget AND the OPA gate passes; non-zero
+blocking findings within the budget AND the OPA gate passes; non-zero
 otherwise, so the command is a usable CI gate.
 """
 
@@ -16,6 +16,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from .gate import plan_summary
 from .loop import format_trace, run_loop
 
 
@@ -42,6 +43,14 @@ def main(argv: list[str] | None = None) -> int:
                            max_passes=args.max_passes,
                            emit_sarif_to=args.sarif)
         print(format_trace(outcome))
+        if outcome.final_module is not None:
+            plan = outcome.final_module / "plan.json"
+            if plan.exists():
+                # Show the diff beside the findings: a clean scan of the wrong
+                # change is still the wrong change.
+                print("planned changes (review these, not just the scan):")
+                for line in plan_summary(plan):
+                    print(f"  {line}")
         if args.sarif:
             n = sum(len(r["results"]) for r in outcome.sarif["runs"])
             print(f"SARIF: {n} result(s) written to {args.sarif}")
@@ -50,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         if outcome.converged and gate_ok:
             print("RESULT: PASS (converged within budget, OPA gate passed)")
             return 0
-        print("RESULT: FAIL (HIGH/CRITICAL remain or OPA gate failed)")
+        print("RESULT: FAIL (blocking findings remain, a scanner failed, or OPA gate failed)")
         return 1
     finally:
         if tmp_ctx is not None:

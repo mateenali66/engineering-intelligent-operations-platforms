@@ -39,7 +39,7 @@ def main() -> None:
         print(f"  total findings : {len(result.findings)}")
         print("  by severity    : "
               + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
-        print(f"  HIGH/CRITICAL  : {len(result.blocking)} (build-failing)")
+        print(f"  blocking       : {len(result.blocking)} (build-failing)")
 
         by_scanner: dict[str, int] = {}
         for f in result.findings:
@@ -52,7 +52,7 @@ def main() -> None:
             print(f"  [{f.scanner:7}] {f.rule_id:14} {f.severity:8} {f.title}")
 
         assert result.has_blocking, \
-            "the recorded insecure module must produce HIGH/CRITICAL findings"
+            "the recorded insecure module must produce blocking findings"
 
 
 if __name__ == "__main__":

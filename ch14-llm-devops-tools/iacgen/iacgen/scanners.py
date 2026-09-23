@@ -21,9 +21,12 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent  # the iacgen/ project root
 
-# Severities we treat as build-failing. Checkov emits these strings; Trivy emits
-# the same set in its config results.
-BLOCKING_SEVERITIES = {"HIGH", "CRITICAL"}
+# Severities we treat as build-failing. UNKNOWN is on the list on purpose: the
+# open-source Checkov CLI reports no severity without a platform API key, so
+# every Checkov finding arrives as UNKNOWN, and a gate that let UNKNOWN through
+# would ignore Checkov entirely. A finding we cannot rank blocks, the same rule
+# Chapter 4's CI applies by failing on any failed Checkov check.
+BLOCKING_SEVERITIES = {"HIGH", "CRITICAL", "UNKNOWN"}
 
 
 @dataclass
@@ -43,6 +46,7 @@ class ScanResult:
     """All findings for one module scan, plus a blocking summary."""
 
     findings: list[Finding] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)  # scanner failures
 
     @property
     def blocking(self) -> list[Finding]:
@@ -50,7 +54,9 @@ class ScanResult:
 
     @property
     def has_blocking(self) -> bool:
-        return len(self.blocking) > 0
+        # Fail closed: a scanner that crashed or returned unreadable output
+        # has not shown the module is clean.
+        return len(self.blocking) > 0 or len(self.errors) > 0
 
     def counts_by_severity(self) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -92,8 +98,9 @@ def conftest_bin() -> str:
 def run_checkov(module_dir: str | Path) -> ScanResult:
     """Run Checkov over a Terraform directory and normalize its JSON findings.
 
-    Checkov exits non-zero when checks fail, which is expected, so we do not
-    raise on a non-zero return code; we parse the JSON either way.
+    Checkov exits 1 when checks fail, which is expected, and 0 when none do.
+    Any other exit code, or output that is not JSON, is a scanner failure and
+    is recorded as an error, which blocks.
     """
     module_dir = Path(module_dir)
     proc = subprocess.run(
@@ -102,9 +109,16 @@ def run_checkov(module_dir: str | Path) -> ScanResult:
         capture_output=True, text=True, check=False,
     )
     stdout = proc.stdout.strip()
+    if proc.returncode not in (0, 1):
+        return ScanResult(errors=[f"checkov exited {proc.returncode}"])
     if not stdout:
-        return ScanResult()
-    data = json.loads(stdout)
+        if proc.returncode == 0:
+            return ScanResult()  # nothing to scan or nothing failed
+        return ScanResult(errors=["checkov reported failures but no JSON"])
+    try:
+        data = json.loads(stdout)
+    except json.JSONDecodeError:
+        return ScanResult(errors=["checkov output was not JSON"])
     # Checkov returns a dict for one framework or a list when several run.
     blocks = data if isinstance(data, list) else [data]
 
@@ -135,6 +149,9 @@ def run_trivy(module_dir: str | Path) -> ScanResult:
     ch14-iacgen job), then every scan runs with this flag so the loop never
     blocks on a network call. Remove the flag and Trivy hangs in an air-gapped
     runner.
+
+    Trivy exits 0 whether or not it finds misconfigurations (no --exit-code),
+    so a non-zero exit or missing JSON is a scanner failure, which blocks.
     """
     module_dir = Path(module_dir)
     proc = subprocess.run(
@@ -143,9 +160,13 @@ def run_trivy(module_dir: str | Path) -> ScanResult:
         capture_output=True, text=True, check=False,
     )
     stdout = proc.stdout.strip()
-    if not stdout:
-        return ScanResult()
-    data = json.loads(stdout)
+    if proc.returncode != 0 or not stdout:
+        return ScanResult(errors=[f"trivy exited {proc.returncode} "
+                                  f"with {'no ' if not stdout else ''}output"])
+    try:
+        data = json.loads(stdout)
+    except json.JSONDecodeError:
+        return ScanResult(errors=["trivy output was not JSON"])
 
     findings: list[Finding] = []
     for result in data.get("Results", []):
@@ -177,7 +198,8 @@ def scan_parallel(module_dir: str | Path) -> ScanResult:
         trivy_future = pool.submit(run_trivy, module_dir)
         checkov_result = checkov_future.result()
         trivy_result = trivy_future.result()
-    return ScanResult(findings=checkov_result.findings + trivy_result.findings)
+    return ScanResult(findings=checkov_result.findings + trivy_result.findings,
+                      errors=checkov_result.errors + trivy_result.errors)
 
 
 def _rel(path: str, module_dir: Path) -> str:

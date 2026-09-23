@@ -439,12 +439,15 @@ jobs:
             assert d['schemaVersion']=='2.1.0', d['schemaVersion']; print('IR ok')"
 
   # ---------------------------------------------------------------------------
-  # Job 2h: ch10 Airflow asset DAG parse
-  # The Airflow 3 asset-triggered DAG is validated by a DagBag parse, which
-  # catches every import and syntax error with no scheduler and no db migrate.
+  # Job 2h: ch10 Airflow asset DAG parse and run
+  # A DagBag parse catches every import and syntax error. Then both DAGs run
+  # with `airflow dags test` (no scheduler): the producer writes the features,
+  # the retrain gates on AUC >= 0.90 and registers a version, and run_dags.sh
+  # fails unless a version above the baseline is in the registry. Airflow is
+  # installed with its official constraints, which task execution needs.
   # ---------------------------------------------------------------------------
   ch10-airflow:
-    name: ch10 Airflow DAG parse
+    name: ch10 Airflow DAG parse and run
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4.2.2
@@ -458,7 +461,10 @@ jobs:
         run: pip install ruff==0.9.10
 
       - name: Install ch10 Airflow dependencies
-        run: pip install -r ch10-pipeline-orchestration/lab2-airflow/requirements.txt
+        run: |
+          pip install "apache-airflow==3.2.2" --constraint \
+            https://raw.githubusercontent.com/apache/airflow/constraints-3.2.2/constraints-3.12.txt
+          pip install -r ch10-pipeline-orchestration/lab2-airflow/requirements.txt
 
       - name: Lint (ruff)
         run: ruff check ch10-pipeline-orchestration/lab2-airflow/
@@ -469,6 +475,10 @@ jobs:
         env:
           AIRFLOW__CORE__LOAD_EXAMPLES: "False"
         run: python parse_check.py
+
+      - name: Run both DAGs and check the gated registration
+        working-directory: ch10-pipeline-orchestration/lab2-airflow
+        run: ./run_dags.sh
 
   # ---------------------------------------------------------------------------
   # Job 2i: ch10 ZenML pipeline run

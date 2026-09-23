@@ -19,7 +19,7 @@ apart on purpose: `apache-airflow` and `zenml` cannot be installed in the same e
 ## Pinned versions (verified June 2026)
 
 - `kfp==2.16.1`, `apache-airflow==3.2.2`, `zenml[local]==0.95.1`, `dvc==3.67.1`
-- shared model stack: `scikit-learn==1.9.0`, `numpy==2.4.6`, `pandas==2.3.3`, `pyarrow==24.0.0`, `mlflow==3.14.0`
+- shared model stack: `scikit-learn==1.9.0`, `numpy==2.4.6`, `pandas==2.3.3`, `pyarrow==24.0.0`, `mlflow==3.14.0` with `skops==0.14.0` (0.15.0 rejects sklearn tree types when MLflow saves the model)
 
 Airflow 3.2.x is the first line that supports Python 3.14; on a Python 3.12 or 3.13 runner,
 Airflow 3.1.x also works. The other three labs run on 3.12 through 3.14.
@@ -35,14 +35,20 @@ pip install -r requirements.txt
 python pipeline.py          # writes pipeline.yaml, the compiled IR
 ```
 
-Lab 2, Airflow 3 asset DAG (parse check, no scheduler needed):
+Lab 2, Airflow 3 asset DAG (parse check and a full run, no scheduler needed):
 
 ```bash
 cd lab2-airflow
-python -m venv .venv && source .venv/bin/activate
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install "apache-airflow==3.2.2" --constraint \
+  https://raw.githubusercontent.com/apache/airflow/constraints-3.2.2/constraints-3.12.txt
 pip install -r requirements.txt
 AIRFLOW__CORE__LOAD_EXAMPLES=False python parse_check.py    # DagBag parse, both DAGs
+./run_dags.sh    # producer, then retrain; gates on AUC >= 0.90 and registers a version
 ```
+
+Install Airflow with its constraints file. A plain `pip install -r requirements.txt`
+parses the DAGs but pulls web-framework versions Airflow 3.2.2 cannot run tasks with.
 
 To run the DAGs for real, point `AIRFLOW_HOME` at this directory, `airflow db migrate`,
 then `airflow dags test refresh_features` first (it writes the feature table the retrain

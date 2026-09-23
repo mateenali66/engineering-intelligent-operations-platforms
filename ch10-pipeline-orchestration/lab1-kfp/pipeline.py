@@ -56,7 +56,8 @@ def evaluate(auc: float, baseline: float = 0.90) -> bool:
 
 
 @dsl.component(base_image=BASE,
-               packages_to_install=["mlflow==3.14.0", "scikit-learn==1.9.0"])
+               packages_to_install=["mlflow==3.14.0", "skops==0.14.0",
+                                    "scikit-learn==1.9.0"])
 def register(model: dsl.Input[dsl.Model], auc: float):
     """Log and register a new anomaly-detector version into the Chapter 9 registry.
 

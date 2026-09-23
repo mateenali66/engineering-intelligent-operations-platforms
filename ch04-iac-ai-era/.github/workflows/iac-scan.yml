@@ -1,4 +1,4 @@
-# NOTE: This workflow file is retained as a reference artifact for Listing 4-3
+# NOTE: This workflow file is retained as a reference artifact for Listing 4-4
 # in the book (Section 4.7: "The CI gate"), but it NEVER RUNS.
 #
 # GitHub Actions only executes workflow files located at the repository root

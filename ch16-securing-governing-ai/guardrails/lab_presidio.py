@@ -2,7 +2,7 @@
 
 Presidio runs fully local on CPU with no API key and installs without torch, so
 it CAN run in CI on Python 3.12 (presidio-analyzer caps at <3.14). It is kept in
-a separate optional job rather than the deterministic gate because its small-model
+an optional local run rather than the deterministic gate because its small-model
 NER is probabilistic: in a measured run en_core_web_sm mislabeled an SSN as
 ORGANIZATION, which is itself the lesson that PII detection is heuristic. The
 deterministic regex scrub in detectors.py is the reliable CI default; this is the

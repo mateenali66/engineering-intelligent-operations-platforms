@@ -26,7 +26,7 @@ requirements-presidio.txt  optional production PII path
 
 ## Run
 
-No API key, no GPU. Python 3.12 (so the optional Presidio and modelscan jobs,
+No API key, no GPU. Python 3.12 (so the optional Presidio and modelscan paths,
 which cap below 3.14 / 3.13, can share one interpreter).
 
 ```bash
@@ -65,6 +65,6 @@ the gateway instead of a static key table.
 The `ch16-guardrails` job runs the deterministic proxy, the attack harness, the
 detector units, and the pickle-danger demo for real. The production guardrails
 are validation-only: Prompt Guard 2 (gated HF download), Llama Guard 4 (12B,
-needs a GPU), Presidio's NER (probabilistic; a separate optional job), Guardrails
+needs a GPU), Presidio's NER (probabilistic; an optional local run, not a CI job), Guardrails
 AI and NeMo Guardrails (need an LLM or a hub token), and the AWS Bedrock / Azure
 managed guardrails (need cloud credentials). They are `py_compile`-checked.

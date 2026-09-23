@@ -23,7 +23,7 @@ scan-and-gate pipeline before `terraform apply`.
 ## Pinned versions
 
 See `versions.md`. The short list: Terraform 1.15.6 / OpenTofu 1.12.3, AWS
-provider 6.51.0, Checkov 3.3.1, Trivy 0.71.1, Conftest 0.68.2.
+provider 6.58.0, Checkov 3.3.1, Trivy 0.71.1, Conftest 0.68.2.
 
 ## Run the lab (Section 4.8)
 

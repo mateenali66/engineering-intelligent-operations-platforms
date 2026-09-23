@@ -73,7 +73,25 @@ jobs:
           yamllint \
             --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
             ch02-platform-engineering/catalog-info.yaml \
-            ch02-platform-engineering/scaffolder-templates/service/template.yaml
+            ch02-platform-engineering/org.yaml \
+            ch02-platform-engineering/scaffolder-templates/service/template.yaml \
+            ch02-platform-engineering/scaffolder-templates/model/template.yaml
+
+      # ch01: the two teaser listings (Listings 1-1 and 1-2). They are not meant
+      # to be applied as-is, but they must stay valid YAML.
+      - name: Lint ch01 teaser YAML
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch01-convergence/inference-service.yaml \
+            ch01-convergence/otel-collector-teaser.yaml
+
+      # ch04: the NVIDIA device plugin DaemonSet (Listing 4-1).
+      - name: Lint ch04 Kubernetes YAML
+        run: |
+          yamllint \
+            --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
+            ch04-iac-ai-era/k8s/nvidia-device-plugin.yaml
 
       # ch03: OpenTelemetry Collector config and operator custom resources.
       - name: Lint ch03 OTel YAML
@@ -365,7 +383,8 @@ jobs:
   # Job 2f: ch09 MLOps fundamentals lab
   # Trains the Chapter 6 detector, logs and registers it to a real SQLite-backed
   # MLflow 3 registry, and runs the validation gate (pass on hold, block on
-  # regression). The DVC listing needs a MinIO/S3 remote, so it is not run here.
+  # regression). Then runs the DVC listing (version-data.sh) in a temp Git repo
+  # against its local-directory remote and checks the pointer file and the push.
   # ---------------------------------------------------------------------------
   ch09-python:
     name: ch09 MLOps lab lint and run
@@ -402,6 +421,23 @@ jobs:
       - name: Run the end-to-end smoke test
         working-directory: ch09-mlops-fundamentals
         run: python run_smoke.py
+
+      # Listing 9-1 commits to Git, so run it in a throwaway repo. The remote is
+      # a local directory, so no object store is needed.
+      - name: Install DVC 3.67.1
+        run: pip install dvc==3.67.1
+
+      - name: Run the DVC listing (version-data.sh)
+        run: |
+          work=$(mktemp -d)
+          cp -R ch09-mlops-fundamentals/. "$work"
+          cd "$work"
+          git init -q && git config user.email ci@ci && git config user.name ci
+          git commit -q --allow-empty -m init
+          bash version-data.sh
+          test -f data/telemetry.csv.dvc
+          dvc status --cloud | grep -q "are in sync"
+          echo "dvc listing: ok"
 
   # ---------------------------------------------------------------------------
   # Job 2g: ch10 KFP pipeline compile
@@ -1181,7 +1217,7 @@ jobs:
   # delivery loop, and the shared OTLP endpoint, with predictive AND generative
   # model formats present; and (2) emits the unified trace and asserts the infra
   # span and the gen_ai child span share one trace, carrying token usage and a
-  # computed cost. pytest then runs both, INCLUDING a negative test that the
+  # computed cost. pytest then runs both, INCLUDING five negative tests that the
   # convergence check FAILS when a workload diverges (so it is a real assertion).
   #
   # Validation-only, NOT executed: setup.sh (stands AIOSP up on a real kind
@@ -1230,7 +1266,7 @@ jobs:
           PYTHONPATH: .
         run: python run_smoke.py
 
-      # Includes the negative test: the convergence check must FAIL on a
+      # Includes five negative tests: the convergence check must FAIL on a
       # divergent workload, so it is a real assertion, not a rubber stamp.
       - name: Run the convergence + tracing test suite
         working-directory: ch17-unified-ops-platform

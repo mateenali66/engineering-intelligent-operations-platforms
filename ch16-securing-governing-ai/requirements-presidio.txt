@@ -1,4 +1,4 @@
-# Optional production PII path for Chapter 16 (separate ch16-presidio job, Python 3.12).
+# Optional production PII path for Chapter 16 (optional local run, not a CI job, Python 3.12).
 # Presidio runs fully local on CPU with no API key and no torch. Its small-model
 # NER is probabilistic (it mislabeled an SSN as ORGANIZATION in a measured run),
 # which is why the deterministic regex scrub in detectors.py is the CI gate and

@@ -21,11 +21,12 @@ groups:
             labels before deciding to retrain.
 
       # Fires when Evidently reports a majority of feature columns drifting.
-      # Section 12.6 rule: this alert must never page. It annotates the
-      # performance alert above; covariate drift fires constantly in healthy
-      # systems, so paging on it teaches operators to mute it. severity: info
-      # routes it to a ticket, not a pager. Page on AnomalyDetectorEstimatedAUCLow
-      # instead and investigate this drift signal after the page.
+      # Section 12.6 rule: this alert must never page. Covariate drift fires
+      # constantly in healthy systems, so paging on it teaches operators to mute
+      # it. severity: info routes it to a ticket, not a pager, and that ticket is
+      # worked on its own merits even while AnomalyDetectorEstimatedAUCLow stays
+      # quiet: a flat estimate under heavy drift is what concept drift looks like
+      # to CBPE, so the ticket should pull a label backfill forward.
       - alert: AnomalyDetectorFeatureDriftHigh
         expr: ml_drift_share{model="anomaly-detector"} > 0.5
         for: 15m

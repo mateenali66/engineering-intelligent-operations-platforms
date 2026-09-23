@@ -1,5 +1,6 @@
-# A bounded remediation runbook: restart one deployment.
-# Enqueued by the decision step only for safe-tier actions.
+# A bounded remediation runbook: restart one deployment, verify it
+# recovered, and page a human if it did not.
+# Enqueued by the decision step only for approved-tier actions.
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
@@ -7,23 +8,70 @@ metadata:
   namespace: remediation
 spec:
   serviceAccountName: remediation-runner
-  entrypoint: restart
+  entrypoint: remediate
+  onExit: escalate-on-failure
+  activeDeadlineSeconds: 900
   arguments:
     parameters:
       - name: deployment
       - name: namespace
+      - name: escalation-webhook
   templates:
+    - name: remediate
+      steps:
+        - - name: restart
+            template: restart
+        - - name: verify
+            template: verify
+
     - name: restart
-      inputs:
-        parameters:
-          - name: deployment
-          - name: namespace
       container:
         image: registry.k8s.io/kubectl:v1.31.0
         command: [kubectl]
         args:
           - rollout
           - restart
-          - "deployment/{{inputs.parameters.deployment}}"
+          - "deployment/{{workflow.parameters.deployment}}"
           - -n
-          - "{{inputs.parameters.namespace}}"
+          - "{{workflow.parameters.namespace}}"
+
+    # Recovery is verified, not assumed: the rollout must finish with
+    # every new pod Ready inside the timeout, or this step fails.
+    - name: verify
+      container:
+        image: registry.k8s.io/kubectl:v1.31.0
+        command: [kubectl]
+        args:
+          - rollout
+          - status
+          - "deployment/{{workflow.parameters.deployment}}"
+          - -n
+          - "{{workflow.parameters.namespace}}"
+          - --timeout=300s
+
+    # Runs after every workflow. Pages only when a step failed or the
+    # deadline expired, so a failed recovery never ends silently.
+    - name: escalate-on-failure
+      steps:
+        - - name: page
+            template: page-oncall
+            when: "{{workflow.status}} != Succeeded"
+
+    - name: page-oncall
+      container:
+        image: curlimages/curl:8.11.1
+        command: [curl]
+        args:
+          - -sf
+          - -X
+          - POST
+          - -H
+          - "Content-Type: application/json"
+          - -d
+          - >-
+            {"summary": "auto-remediation failed",
+            "deployment": "{{workflow.parameters.deployment}}",
+            "namespace": "{{workflow.parameters.namespace}}",
+            "workflow": "{{workflow.name}}",
+            "status": "{{workflow.status}}"}
+          - "{{workflow.parameters.escalation-webhook}}"

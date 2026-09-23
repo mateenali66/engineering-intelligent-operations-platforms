@@ -1,0 +1,60 @@
+# Least-privilege identity for restart-deployment.yaml. Tested on kind with
+# Argo Workflows v4.1.4: restart needs patch on the deployment, verify needs
+# read access to deployments and replicasets, and Argo's executor needs to
+# write its step results. Bind one Role per namespace the runbook may touch.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: remediation-runner
+  namespace: remediation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restart-and-verify
+  namespace: demo  # the target namespace
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, patch]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: remediation-runner
+  namespace: demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restart-and-verify
+subjects:
+  - kind: ServiceAccount
+    name: remediation-runner
+    namespace: remediation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-executor
+  namespace: remediation
+rules:
+  - apiGroups: [argoproj.io]
+    resources: [workflowtaskresults]
+    verbs: [create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-executor
+  namespace: remediation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argo-executor
+subjects:
+  - kind: ServiceAccount
+    name: remediation-runner
+    namespace: remediation

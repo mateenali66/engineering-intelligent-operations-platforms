@@ -114,7 +114,8 @@ jobs:
         run: |
           yamllint \
             --config-data '{extends: default, rules: {line-length: {max: 120}, document-start: disable}}' \
-            ch05-intro-aiops/remediation/restart-deployment.yaml
+            ch05-intro-aiops/remediation/restart-deployment.yaml \
+            ch05-intro-aiops/remediation/rbac.yaml
 
       # ch08: Chaos Mesh experiment manifests (chaos-mesh.org/v1alpha1).
       - name: Lint ch08 Chaos Mesh manifests

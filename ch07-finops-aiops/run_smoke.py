@@ -12,6 +12,7 @@ import os
 
 from pipeline.business import SavingsCase, business_case, unit_economics
 from pipeline.cost_anomaly import detect_cost_anomalies
+from pipeline.backtest import backtest_upper_bound
 from pipeline.forecast import forecast_spend, right_size
 from pipeline.ingest import load_daily_spend
 from pipeline.make_billing import make_billing
@@ -40,6 +41,12 @@ def main():
     # The 80% upper bound over the next week, kept under a 75% utilization
     # ceiling, needs more than is provisioned, so the rule refuses to cut.
     assert rs["action"] == "hold", "the interval is too wide to support a cut"
+
+    # How honest is the upper bound on this data? Refit weekly and count.
+    hits, days = backtest_upper_bound(daily, result["flagged"])
+    print(f"backtest: actual above the one-week 80% upper bound on {hits} of "
+          f"{days} normal days ({hits / days:.0%})")
+    assert days > 0
     assert rs["recommended_daily"] == rs["provisioned_daily"]
 
     # The other two branches, on the same forecast: a clearly oversized

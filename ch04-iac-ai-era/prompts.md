@@ -11,7 +11,7 @@ clears it.
 > Write me Terraform for a public-facing data bucket for telemetry exports.
 
 This is the prompt that produces something close to `generated-module/main.tf`:
-a world-readable bucket with no encryption. Run it through the pipeline and
+a world-readable bucket with no KMS encryption. Run it through the pipeline and
 watch it fail. This is the breach from the opening of the chapter.
 
 ## Prompt 2: the careful prompt (better, still scan it)

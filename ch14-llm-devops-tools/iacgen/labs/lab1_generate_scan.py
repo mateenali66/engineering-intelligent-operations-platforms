@@ -1,7 +1,7 @@
 """Listing 14-1 (RUNS IN CI): generate + scan.
 
 generate() is a STUBBED LLM: it returns a recorded, realistic-but-INSECURE
-Terraform module (rev1_insecure: a public-read S3 bucket with no encryption, no
+Terraform module (rev1_insecure: a public-read S3 bucket with no KMS encryption, no
 versioning, no logging, no public-access block), exactly the output Chapter 4
 and Chapter 14 warn about. There is no live model call and no API key.
 

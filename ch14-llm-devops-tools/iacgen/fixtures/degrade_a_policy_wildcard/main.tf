@@ -49,7 +49,7 @@ resource "aws_s3_bucket_policy" "telemetry" {
 }
 
 # OVER-CORRECTION: a second "staging copy" bucket the model added while chasing
-# the finding. Also public-read, also unencrypted, also no public-access block.
+# the finding. Also public-read, also no KMS encryption, no public-access block.
 resource "aws_s3_bucket" "telemetry_staging" {
   bucket = "${var.name}-staging"
 }

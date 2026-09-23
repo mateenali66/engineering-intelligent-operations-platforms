@@ -28,7 +28,7 @@ same one Chapters 11, 12, and 13 use.
 
 **Stubbed (recorded fixtures, no model call):**
 - `generate(prompt)` returns the recorded `rev1_insecure` module: the realistic,
-  insecure Terraform a careless prompt produces (public-read ACL, no encryption,
+  insecure Terraform a careless prompt produces (public-read ACL, no KMS encryption,
   no versioning, no logging, no public-access block).
 - `repair(module, findings)` returns the next recorded revision (`rev2_hardened`),
   the corrected module a repair prompt produces.

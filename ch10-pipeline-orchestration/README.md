@@ -90,6 +90,6 @@ dvc repro                   # only train re-runs; prepare is cached
 ## CI
 
 The root workflow runs one job per lab: `ch10-kfp` (compile + IR-shape assert),
-`ch10-airflow` (DagBag parse), `ch10-zenml` (local pipeline run), and `ch10-dvc`
+`ch10-airflow` (DagBag parse, then both DAGs run with `airflow dags test` and `run_dags.sh` checks the gated registration), `ch10-zenml` (local pipeline run), and `ch10-dvc`
 (`dvc repro` twice, second run must skip). All are headless: no cloud, no GPU, no
 live Kubernetes cluster, no Airflow scheduler.

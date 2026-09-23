@@ -4,18 +4,21 @@ name: ci
 # One job per concern; each job is independently gating.
 #
 # Chapter coverage:
-#   yaml-lint   : ch02 catalog-info.yaml, ch03 OTel Collector config and operator CR
+#   yaml-lint   : YAML listings in ch01, ch02, ch03, ch04 (device plugin), ch05, ch08, ch11
 #   ch03-python : ch03 Python listings (ruff lint + py_compile with pinned deps)
 #                 + cluster-free feature-pipeline smoke test on an OTLP fixture
-#   ch05..ch09  : per-chapter Python labs (lint + end-to-end run/registry/gate)
+#   ch05..ch09  : per-chapter Python labs (lint + end-to-end run/registry/gate;
+#                 ch09 also runs the DVC listing in a throwaway Git repo)
 #   ch10-kfp    : ch10 Kubeflow Pipelines v2 listing compiles to IR (shape asserted)
-#   ch10-airflow: ch10 Airflow 3 asset DAG parses (DagBag, no scheduler)
+#   ch10-airflow: ch10 Airflow 3 asset DAGs parse, then run with `airflow dags test`
+#                 and the gated registration is checked (run_dags.sh)
 #   ch10-zenml  : ch10 ZenML pipeline runs on the local stack
 #   ch10-dvc    : ch10 DVC caching demo, second repro must skip both stages
 #   ch11-serving: ch11 serve anomaly-detector via MLServer (KServe V2) + load test
 #   ch12-monitor: ch12 NannyML CBPE + Evidently->Prometheus + River ADWIN, one 3.12 venv
 #   ch13-llmops : ch13 OTel GenAI span emission+assertion + DeepEval offline eval gate, 3.14 venv
-#   ch14-iacgen : ch14 bounded generate-scan-repair loop (Checkov+Trivy parallel) + OPA gate + SARIF
+#   ch14-iacgen : ch14 bounded generate-scan-repair loop (Checkov+Trivy parallel, fail closed)
+#                 + OPA gate + SARIF + the three chapter labs
 #   ch15-rag    : ch15 pgvector hybrid (dense+tsvector+RRF) + FlashRank rerank + contextual A/B + eval gate
 #   ch16-guardrails: ch16 layered guardrail proxy + attack harness (input/containment/output) + pickle-danger demo
 #   ch17-platform: ch17 AIOSP convergence check over the GitOps manifests + unified infra+gen_ai trace, one 3.12 venv
@@ -922,8 +925,8 @@ jobs:
 
       # Upload the SARIF to GitHub code scanning (the production destination).
       # Code scanning is free on public repos; on private repos it needs GitHub
-      # Advanced Security. This repo is private until Apress migrates it, so we
-      # only upload when public and always keep the SARIF as a build artifact.
+      # Advanced Security. The step runs only while the repository is public, and
+      # the SARIF is always kept as a build artifact.
       - name: Upload SARIF to GitHub code scanning
         if: ${{ !github.event.repository.private }}
         uses: github/codeql-action/upload-sarif@v4

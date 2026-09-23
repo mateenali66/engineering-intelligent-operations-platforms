@@ -45,6 +45,8 @@ spec:
     spec:
       containers:
         - name: otel-collector
+          # Same pin as Chapter 3. The config below validates with
+          # `otelcol-contrib validate` on this image.
           image: otel/opentelemetry-collector-contrib:0.135.0
           args: ["--config=/conf/config.yaml"]
           ports:

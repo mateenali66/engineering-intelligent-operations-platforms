@@ -2,8 +2,8 @@
 
 Code listings for Chapter 14. The running example is **iacgen**: a CLI that takes
 a natural-language request, generates Terraform, scans it in parallel with
-multiple security scanners, runs a BOUNDED generate-scan-repair loop, fails on
-HIGH/CRITICAL, runs an OPA policy gate, and emits SARIF for GitHub code scanning.
+multiple security scanners, runs a BOUNDED generate-scan-repair loop, fails closed
+on blocking findings (HIGH, CRITICAL, or unranked) and scanner errors, runs an OPA policy gate, and emits SARIF for GitHub code scanning.
 
 It is the operational counterpart to Chapter 4: Chapter 4 builds the scan-and-gate
 pipeline for IaC; Chapter 14 wraps a model around it and shows how to build a
@@ -37,7 +37,7 @@ same one Chapters 11, 12, and 13 use.
 
 **Real (runs for real against the fixtures):**
 - Checkov 3.3.1 and Trivy 0.71.1 config scan the modules, in parallel.
-- The bounded loop, the HIGH/CRITICAL gate, and the retry budget.
+- The bounded loop, the fail-closed gate, and the retry budget.
 - The OPA/Conftest 0.68.2 policy gate (against the recorded `plan.json`).
 - SARIF 2.1.0 emission and validation.
 
@@ -92,25 +92,27 @@ export PYTHONPATH=$PWD
 ## What the loop trace looks like (real scanner counts)
 
 ```
-pass 1: 6 HIGH/CRITICAL (18 total; HIGH=6, LOW=2, MEDIUM=1, UNKNOWN=9) -> repair()
-pass 2: 0 HIGH/CRITICAL (1 total; LOW=1)
-converged: 0 HIGH/CRITICAL within budget
+pass 1: 15 blocking (18 total; HIGH=6, LOW=2, MEDIUM=1, UNKNOWN=9) -> repair()
+pass 2: 0 blocking (1 total; LOW=1)
+converged: 0 blocking findings within budget
 OPA gate: PASS
 ```
 
-The 6 HIGH come from Trivy (`AWS-0086/0087/0091/0092/0093/0132`). Checkov's
-findings carry no severity in JSON, which is exactly the Chapter 4 gotcha: that
-is why the loop gates on Trivy's HIGH/CRITICAL and on any failed Checkov check,
-not on a Checkov severity filter.
+The 6 HIGH come from Trivy (`AWS-0086/0087/0091/0092/0093/0132`). The 9 UNKNOWN
+are Checkov's: the open-source Checkov CLI reports no severity, which is exactly
+the Chapter 4 gotcha. The loop treats an unranked finding as blocking, so all 15
+block, and it treats a scanner that crashed or printed no JSON as a failed scan,
+never a clean one. The Conftest gate fails the same way if the policy engine
+cannot run. `tests/test_iacgen.py` covers each of these paths.
 
 ## The degradation paradox (Listing 14-3)
 
 ```
-UNCAPPED: pass 1 = 6 -> pass 2 = 11 -> pass 3 = 17  (rising, never converges)
-CAPPED  : pass 1 = 6, budget exhausted, build FAILS on the non-clean module
+UNCAPPED: pass 1 = 15 -> pass 2 = 28 -> pass 3 = 43  (rising, never converges)
+CAPPED  : pass 1 = 15, budget exhausted, build FAILS on the non-clean module
 ```
 
-These are the real Trivy HIGH counts on the recorded degrade fixtures. They are
+These are the real blocking counts (Trivy HIGH plus Checkov's unranked findings) on the recorded degrade fixtures. They are
 a **deterministic illustration** of Shukla et al.'s qualitative finding that
 unbounded LLM self-refinement can ADD vulnerabilities. They are **not** a
 reproduction of the paper's **+37.6%** figure, which is a live-LLM result and

@@ -37,7 +37,7 @@ aiosp/
   convergence.py  the convergence check (Listing 17-4)
   cost.py         token-to-cost helper (custom app.gen_ai.cost_usd attribute)
 labs/             lab1 (unified trace), lab2 (convergence)
-tests/            convergence + tracing tests, incl. a negative convergence test
+tests/            convergence + tracing tests, incl. five negative convergence tests
 setup.sh          stand AIOSP up on a local kind cluster (NOT run in CI;
                   needs your own fork of the platform tree, see below)
 run_smoke.py      convergence check + unified trace, asserts both

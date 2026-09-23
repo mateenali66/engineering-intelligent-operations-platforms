@@ -37,19 +37,32 @@ def main():
 
     rs = right_size(fc, provisioned_daily=float(daily.tail(30).median()) * 1.6)
     print("right-sizing:", rs)
+    # The 80% upper bound over the next week, kept under a 75% utilization
+    # ceiling, needs more than is provisioned, so the rule refuses to cut.
+    assert rs["action"] == "hold", "the interval is too wide to support a cut"
+    assert rs["recommended_daily"] == rs["provisioned_daily"]
 
-    # Frame in dollars, not RMSE. The savings are model-derived: baseline and
-    # optimized spend are the right-sizing output (provisioned and recommended
-    # daily levels) carried over 30 days, so the daily headroom becomes the
-    # monthly saving. Implementation and run costs are illustrative assumptions,
-    # not model output; keep the two apart.
-    case = SavingsCase(monthly_baseline_usd=rs["provisioned_daily"] * 30,
-                       monthly_optimized_usd=rs["recommended_daily"] * 30,
+    # The other two branches, on the same forecast: a clearly oversized
+    # workload is cut by at most 25 percent, and one whose expected demand
+    # passes the ceiling is scaled up to the level the interval needs.
+    big = right_size(fc, provisioned_daily=4_000.0)
+    assert big["action"] == "downsize" and big["recommended_daily"] == 3_000.0
+    small = right_size(fc, provisioned_daily=1_000.0)
+    assert small["action"] == "scale up"
+    assert small["recommended_daily"] == small["needed_at_ceiling"]
+
+    # Frame in dollars, not RMSE. The model recommended no cut this week, so
+    # the business case below is ILLUSTRATIVE: it assumes a later week's
+    # forecast supports a 20 percent cut on this workload. The cut, the
+    # implementation cost, and the run cost are assumptions, not model output.
+    baseline = rs["provisioned_daily"] * 30
+    case = SavingsCase(monthly_baseline_usd=baseline,
+                       monthly_optimized_usd=baseline * 0.8,
                        implementation_usd=15_000, monthly_run_usd=400)
     bc = business_case(case)
-    print("business case:", bc)
+    print("business case (illustrative 20% cut):", bc)
     print("cost per transaction $",
-          unit_economics(rs["recommended_daily"] * 30, 2_400_000))
+          unit_economics(baseline * 0.8, 2_400_000))
     assert bc["payback_months"] < float("inf"), "payback should be finite"
     print("smoke: ok")
 

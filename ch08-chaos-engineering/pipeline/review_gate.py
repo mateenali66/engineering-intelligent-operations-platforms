@@ -34,7 +34,7 @@ def _duration_seconds(value):
 
 
 def review_experiment(manifest):
-    """Return (approved, findings) for a proposed Chaos Mesh manifest dict."""
+    """Return {"auto_blocked", "findings"} for a proposed Chaos Mesh manifest."""
     spec = manifest.get("spec", {})
     findings = []
 

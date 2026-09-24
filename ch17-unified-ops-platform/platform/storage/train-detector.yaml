@@ -1,0 +1,35 @@
+# Trains the book's detector ON THE CLUSTER, inside the image KServe will serve
+# it with, so the model file is written by the same scikit-learn version that
+# loads it. setup.sh fills in RUNTIME_IMAGE from the kserve-mlserver runtime
+# and loads Chapter 11's train.py into the detector-train-src ConfigMap. The
+# node already caches that image for serving, so nothing large is pulled twice.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: train-detector
+  namespace: aiops
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: RUNTIME_IMAGE
+          command: ["sh", "-c"]
+          # MLServer's sklearn runtime loads model.joblib from the model folder.
+          args: ["cd /out && python /src/train.py && mv anomaly-detector.joblib model.joblib"]
+          volumeMounts:
+            - name: src
+              mountPath: /src
+            - name: out
+              mountPath: /out
+      volumes:
+        - name: src
+          configMap:
+            name: detector-train-src
+        # The folder the kind node mounts from ./model-store (setup.sh step 2).
+        - name: out
+          hostPath:
+            path: /models/anomaly-detector
+            type: DirectoryOrCreate

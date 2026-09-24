@@ -1,0 +1,28 @@
+# The Argo CD project every AIOSP Application names (spec.project: aiosp).
+# setup.sh applies it before the app-of-apps root, because Argo CD refuses to
+# sync an Application whose project does not exist. It limits the platform to
+# its own repo and to the four namespaces the workloads and the root live in.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aiosp
+  namespace: argocd
+spec:
+  description: AIOSP, one delivery loop for the AIOps, MLOps, and LLMOps workloads
+  # PLACEHOLDER: the same fork URL as the Applications; setup.sh substitutes it.
+  sourceRepos:
+    - https://github.com/YOUR-USERNAME/aiosp-platform.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+    - server: https://kubernetes.default.svc
+      namespace: aiops
+    - server: https://kubernetes.default.svc
+      namespace: mlops
+    - server: https://kubernetes.default.svc
+      namespace: llmops
+  # CreateNamespace=true on the workload Applications creates a Namespace, a
+  # cluster-scoped resource, so the project has to allow that kind.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

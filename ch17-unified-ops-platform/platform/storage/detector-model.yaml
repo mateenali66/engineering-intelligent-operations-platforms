@@ -1,0 +1,34 @@
+# Where the served anomaly-detector's model file lives on the local kind cluster.
+# setup.sh trains the Chapter 11 detector (normal rows only) into ./model-store,
+# and the kind node mounts that folder at /models. This PV exposes it and the
+# PVC binds to it, so the InferenceService loads it with storageUri
+# pvc://detector-model/anomaly-detector. On a real cluster, replace the hostPath
+# PV with your storage class, or point storageUri at your model bucket.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: detector-model
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: /models
+    type: Directory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: detector-model
+  namespace: aiops
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: ""
+  volumeName: detector-model
+  resources:
+    requests:
+      storage: 1Gi

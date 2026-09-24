@@ -19,10 +19,11 @@ spec:
       env:
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           value: http://otel-collector.observability:4318
-      # PUBLIC EXAMPLE ARTIFACT: the sklearn model from the official KServe
-      # examples bucket, a stand-in so the service reaches Ready without a
-      # bucket of your own. Swap in your trained detector's storageUri.
-      storageUri: gs://kfserving-examples/models/sklearn/1.0/model
+      # The book's own detector: the Chapter 11 IsolationForest, fit on normal
+      # rows only. setup.sh trains it with the runtime's scikit-learn and puts
+      # model.joblib on the PVC in platform/storage/. On a real cluster, point
+      # this at the version your registry promoted.
+      storageUri: pvc://detector-model/anomaly-detector
       resources:
         requests:
           cpu: "1"

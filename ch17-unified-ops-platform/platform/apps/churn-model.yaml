@@ -20,3 +20,7 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    # Create the destination namespace on first sync; without this the sync
+    # fails on a fresh cluster.
+    syncOptions:
+      - CreateNamespace=true

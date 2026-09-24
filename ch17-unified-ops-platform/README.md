@@ -88,11 +88,30 @@ incident-copilot   Synced        Progressing
 ```
 
 `kubectl get inferenceservice -A` shows `anomaly-detector` and `churn-model` with
-`READY True`: both pull KServe's public example sklearn model
-(`gs://kfserving-examples/models/sklearn/1.0/model`, the artifact the official
-KServe getting-started docs use) as a stand-in until you swap in your own
-`storageUri`. `incident-copilot` stays unready without a GPU node; the
+`READY True`. `anomaly-detector` serves the book's own detector: `setup.sh` runs
+Chapter 11's `train.py` (normal rows only) as the `train-detector` Job inside the
+image of KServe's `kserve-mlserver` runtime, the one KServe picks for sklearn over
+the V2 protocol, so the scikit-learn that writes `model.joblib` is the one that
+loads it. The file lands in `./model-store` (gitignored), which the kind node
+mounts at `/models` and `platform/storage/detector-model.yaml` exposes as the
+`detector-model` PVC behind `storageUri: pvc://detector-model/anomaly-detector`.
+`churn-model` pulls KServe's public example sklearn model
+(`gs://kfserving-examples/models/sklearn/1.0/model`) as a stand-in until you swap
+in your own `storageUri`. `incident-copilot` stays unready without a GPU node; the
 convergence claim does not depend on it being up.
+
+Check the detector answers:
+
+```
+kubectl port-forward -n aiops svc/anomaly-detector-predictor 18080:80 &
+curl -s -X POST localhost:18080/v2/models/anomaly-detector/infer \
+  -H 'Content-Type: application/json' \
+  -d '{"inputs":[{"name":"input-0","shape":[2,6],"datatype":"FP64",
+       "data":[0.1,-0.2,0.0,0.3,-0.1,0.2,3.0,3.1,2.9,3.2,3.0,2.8]}]}'
+```
+
+The `predict` output is `[1, -1]`: the normal row is an inlier, the shifted row is
+flagged.
 
 ## The honest CI-vs-live split
 

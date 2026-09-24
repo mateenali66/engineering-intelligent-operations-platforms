@@ -201,7 +201,7 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - CI installs mlflow 3.14.0, skops 0.14.0, scikit-learn 1.9.0 and numpy 2.4.6, then `dvc==3.67.1` (without the `[s3]` extra) for the DVC step.
   - `.github/workflows/model-validation-gate.yml` pins `actions/checkout@v7.0.1`, `actions/setup-python@v7.0.0` and Python 3.12.
 - **What CI runs**
-  - ruff, `py_compile`, then `run_smoke.py`. It trains the detector on the DVC-tracked `data/telemetry.csv` and tags the run with `dataset.md5`, registers it to a SQLite-backed MLflow 3 registry, confirms the version exists, and runs `scripts/validate_metric.py` on a passing and a regressing metric. It then promotes the version with `promote.py` and walks the trail from `@production` back to the dataset hash (Table 9-4).
+  - ruff, `py_compile`, then `run_smoke.py`. It trains the detector on the normal rows of the DVC-tracked `data/telemetry.csv` (Chapter 6's normal-only rule) and tags the run with `dataset.md5`, registers it to a SQLite-backed MLflow 3 registry, confirms the version exists, and runs `scripts/validate_metric.py` on a passing and a regressing metric. It then promotes the version with `promote.py` and walks the trail from `@production` back to the dataset hash (Table 9-4).
   - It copies the chapter to a temp dir, makes a throwaway Git repo, and runs `version-data.sh` (Listing 9-1) against its local-directory remote. It asserts `data/telemetry.csv.dvc` exists and that `dvc status --cloud` reports the data in sync.
 - **Expected output**
   - `trained and registered, auc=...`, `registry has anomaly-detector v1`, `validation gate: passes on hold, blocks on regression`, `trail: dataset md5 -> run ... -> v1 -> @production (approved by model-quality owner)`, then `smoke: ok`.
@@ -211,9 +211,11 @@ This file lists, chapter by chapter, what the companion code was tested against,
 - **Not run in CI**
   - The production MinIO or S3 remote for `version-data.sh` is not exercised. CI uses the local-directory remote at `/tmp/aiosp-dvcstore` (README, script comments).
   - `.github/workflows/model-validation-gate.yml` (Listing 9-3) sits in a chapter subdirectory, so GitHub does not execute it. CI runs its validation script through the smoke test instead.
+  - `produce_metrics.py`, the workflow's produce step, is not run in CI.
 - **Local tests outside CI**
   - `version-data.sh` inside your own Git repo, as in the README. CI runs the same script in a throwaway repo.
   - `mlflow ui --backend-store-uri sqlite:///mlflow.db` (README).
+  - `produce_metrics.py`: loads the incumbent (`@production`, else the latest version) before registering the candidate, and re-scores it on the same held-out slice (`train.split`). Run twice locally: the first run bootstraps the baseline, the second re-scores the registered incumbent. Both wrote `auc 1.0000`, and `validate_metric.py` passed.
 
 ## Chapter 10: ML Pipeline Orchestration
 
@@ -233,7 +235,7 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - `compiled pipeline.yaml` and `IR ok` (kfp). `DagBag ok: both DAGs parsed with no import errors` and `registered anomaly-detector vN, auc=...` (Airflow).
   - `didn't change, skipping` on the second `dvc repro`. The ZenML job prints no custom success line.
 - **Fixtures**
-  - Every lab generates the same synthetic feature table in code (`numpy.default_rng(42)`, 800 normal and 80 anomalous rows).
+  - Every lab generates the same synthetic feature table in code (`numpy.default_rng(42)`, 800 normal and 80 anomalous rows), and every lab fits on the normal rows of its training split only.
 - **Not run in CI**
   - No Kubeflow cluster, Airflow scheduler, cloud or GPU (README CI section).
   - The ZenML stack swap to a second orchestrator is shown as CLI only (ci.yml comment).
@@ -252,7 +254,7 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - `inferenceservice-vllm-llm.yaml` uses `storageUri: "hf://Qwen/Qwen2.5-0.5B-Instruct"`.
 - **What CI runs**
   - `yaml-lint` lints the three `manifests/` files.
-  - `ch11-serving` runs ruff, then `run_smoke.py`. It trains, starts MLServer, posts a V2 infer request and asserts `[1, -1]`.
+  - `ch11-serving` runs ruff, then `run_smoke.py`. It trains (normal rows only), starts MLServer, posts a V2 infer request and asserts `[1, -1]`.
   - It then runs `train.py`, starts `mlserver`, waits for the model ready endpoint, runs `loadtest.py --requests 200`, and asserts at least four numeric table rows.
 - **Expected output**
   - `V2 infer ok: predictions=[1, -1]  (1=inlier, -1=anomaly)` and `smoke: ok`.
@@ -404,7 +406,7 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - Python 3.12.
   - `setup.sh`: kind v0.32.0, Argo CD 3.4.4 (install manifest `v3.4.4`), KServe 0.19.0 (`v0.19.0` install script), Backstage Helm chart 2.8.2.
   - Collector image `otel/opentelemetry-collector-contrib:0.135.0` in `platform/observability/otel-collector.yaml`, the same pin as Chapter 3. A comment in that file says its config validates with `otelcol-contrib validate` on this image.
-  - `platform/inference/incident-copilot.yaml` uses `hf://Qwen/Qwen2.5-7B-Instruct`. The two sklearn workloads use `gs://kfserving-examples/models/sklearn/1.0/model`.
+  - `platform/inference/incident-copilot.yaml` uses `hf://Qwen/Qwen2.5-7B-Instruct`. `platform/inference/anomaly-detector.yaml` uses `pvc://detector-model/anomaly-detector`, the book's own detector (Chapter 11 `train.py`, normal rows only). `platform/inference/churn-model.yaml` uses KServe's example model `gs://kfserving-examples/models/sklearn/1.0/model` as a stand-in.
 - **What CI runs**
   - ruff and yamllint over `platform/`.
   - `run_smoke.py` runs the convergence check over the manifests and the unified infra and gen_ai trace.
@@ -419,7 +421,8 @@ This file lists, chapter by chapter, what the companion code was tested against,
   - The live KServe Hugging Face or vLLM serving of the Copilot needs a GPU node.
   - The Backstage portal is not deployed (README, ci.yml).
 - **Local tests outside CI**
-  - `setup.sh`. Its header says the first run rewrites the placeholder `repoURL` and stops, and the second run creates the kind cluster, installs Argo CD and KServe, applies the Collector and applies the app-of-apps root.
+  - `setup.sh`. Its header says the first run rewrites the placeholder `repoURL` and stops, and the second run creates the kind cluster, installs Argo CD and KServe, applies the Collector, trains the detector as the `train-detector` Job in the `kserve-mlserver` runtime image (`platform/storage/train-detector.yaml`), binds the `detector-model` PVC (`platform/storage/detector-model.yaml`), applies the `aiosp` AppProject (`platform/argocd/project.yaml`) and applies the app-of-apps root.
+  - Run live on September 24, 2026 on a fresh kind cluster with Argo CD 3.4.4 and KServe 0.19.0 (steps 1 to 7, then the detector InferenceService applied directly, since Argo CD needs a fork): `anomaly-detector` reached Ready, loaded with no `InconsistentVersionWarning`, and V2 infer returned `[1, -1]`. Argo CD accepted the `aiosp` project. The Argo CD sync from a real fork was not exercised.
   - `python -m aiosp.convergence` and `python -m aiosp.tracing` (README).
 
 ## Chapter 18: The Future of Intelligent Operations

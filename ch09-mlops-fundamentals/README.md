@@ -17,7 +17,7 @@ the lifecycle of the Part II models.
 ```bash
 pip install -r requirements.txt          # pinned, CI-tested versions
 python run_smoke.py                       # train + register + gate, end to end
-# -> auc=0.998  registered=anomaly-detector  uri=models:/m-...
+# -> auc=1.000  registered=anomaly-detector  uri=models:/m-...
 #    registry has anomaly-detector v1
 #    validation gate: passes on hold, blocks on regression
 #    smoke: ok

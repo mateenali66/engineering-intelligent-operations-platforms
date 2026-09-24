@@ -42,18 +42,23 @@ def load_dataset(path=DATASET):
     return rows[:, :-1], rows[:, -1], md5
 
 
+def split(X, y):
+    """Hold out 30 percent for evaluation. Never score the gate on training
+    data: a model measured on the rows it was fit on reports an inflated metric.
+    The CI gate re-scores the incumbent on this same slice."""
+    return train_test_split(X, y, test_size=0.3, stratify=y, random_state=42)
+
+
 def main():
     X, y, dataset_md5 = load_dataset()
-    # Hold out 30 percent for evaluation. Never score the gate on training data:
-    # a model measured on the rows it was fit on reports an inflated metric.
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.3, stratify=y, random_state=42
-    )
+    X_train, X_val, y_train, y_val = split(X, y)
     params = {"n_estimators": 100, "contamination": 0.1, "random_state": 42}
 
     with mlflow.start_run():
         model = IsolationForest(**params)
-        model.fit(X_train)
+        # Fit on normal rows only, as Chapter 6 requires: a detector that trains
+        # on the anomalies learns them as normal. The labels mark which rows.
+        model.fit(X_train[y_train == 0])
         # Score the held-out slice, not the training rows. Chapter 6 sign convention.
         auc = roc_auc_score(y_val, -model.score_samples(X_val))
 

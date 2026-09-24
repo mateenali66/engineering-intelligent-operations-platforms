@@ -78,7 +78,10 @@ with DAG(dag_id="retrain_anomaly_detector", schedule=[features], catchup=False):
         X_train, X_val, y_train, y_val = train_test_split(
             X, y, test_size=0.3, stratify=y, random_state=42
         )
-        clf = IsolationForest(n_estimators=100, contamination=0.1, random_state=42).fit(X_train)
+        # Fit on normal rows only, as Chapter 6 requires: a detector that trains on
+        # the anomalies learns them as normal. The labels mark which rows those are.
+        clf = IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
+        clf.fit(X_train[y_train == 0])
         auc = float(roc_auc_score(y_val, -clf.score_samples(X_val)))
         # The same gate as Listing 10-1: register only when the model clears the
         # baseline. Skipping marks the run visibly and writes nothing to the registry.
